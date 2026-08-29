@@ -1,0 +1,15 @@
+{
+  "originHash" : "c24fd2f5082168be7cc78b1b6b6d2ce5614fb78bae470fbe57335ccdd7d7b8f6",
+  "pins" : [
+    {
+      "identity" : "sparrow-domain",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ksypSparrow/sparrow-domain",
+      "state" : {
+        "revision" : "953ccc31387493407cf8d290ace9e4be30b7e2f2",
+        "version" : "0.1.0"
+      }
+    }
+  ],
+  "version" : 3
+}
