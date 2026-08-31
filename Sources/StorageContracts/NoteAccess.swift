@@ -1,7 +1,8 @@
 import Foundation
 import SparrowDomain
 
-/// Reading notes. Available everywhere, inside a transaction and outside one.
+/// Reading notes from outside a transaction. Asynchronous, because it has to
+/// reach the database.
 public protocol NoteReading: Sendable {
     func note(_ id: NoteID) async throws -> Note?
     func notes(_ ids: [NoteID]) async throws -> [Note]
@@ -9,16 +10,19 @@ public protocol NoteReading: Sendable {
     func count() async throws -> Int
 }
 
-/// Writing notes. **Obtainable only from inside a `write { }` body** — see
-/// `StorageSession`. That is what makes "saved but not indexed" unwritable.
-public protocol NoteWriting: Sendable {
-    func insert(_ note: Note) async throws
-    func update(_ note: Note) async throws
+/// Reading and writing notes **inside** a transaction.
+///
+/// Synchronous, and that is the whole point — see `StorageSession`. Reads are
+/// here too so that a write can see its own effects before it commits.
+public protocol NoteSessionAccess {
+    func note(_ id: NoteID) throws -> Note?
+
+    func insert(_ note: Note) throws
+    func update(_ note: Note) throws
 
     /// Records a tombstone. There is deliberately no `delete`.
     ///
-    /// Removing a row destroys the tombstone, and without a tombstone a deleted
-    /// note reappears from another device the first time V2 syncs. Making the
-    /// destructive verb unavailable is cheaper than remembering not to use it.
-    func markDeleted(_ id: NoteID, at: Date) async throws
+    /// Removing a row destroys the tombstone, and without a tombstone a
+    /// deleted note reappears from another device the first time V2 syncs.
+    func markDeleted(_ id: NoteID, at date: Date) throws
 }

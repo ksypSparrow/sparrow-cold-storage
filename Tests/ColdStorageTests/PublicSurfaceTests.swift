@@ -12,14 +12,16 @@ struct PublicSurfaceTests {
     func readerIsNotAWriter() throws {
         let storage = try ColdStorage.inMemory()
         #expect(storage.notes is any NoteReading)
-        #expect(!(storage.notes is any NoteWriting))
+        #expect(!(storage.notes is any NoteSessionAccess))
+        #expect(!(storage.notebooks is any NotebookSessionAccess))
     }
 
-    @Test("A session, and only a session, exposes a writer")
-    func sessionExposesAWriter() async throws {
+    @Test("A session, and only a session, reaches a writer")
+    func sessionReachesAWriter() async throws {
         let storage = try ColdStorage.inMemory()
         let sawWriter = try await storage.transactions.write { session in
-            session.notes is any NoteWriting
+            session.notes is any NoteSessionAccess
+                && session.notebooks is any NotebookSessionAccess
         }
         #expect(sawWriter)
     }

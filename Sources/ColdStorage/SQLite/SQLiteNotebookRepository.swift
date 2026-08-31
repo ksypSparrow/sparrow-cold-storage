@@ -63,12 +63,6 @@ struct SQLiteNotebookRepository: NotebookReading {
     private func read<T: Sendable>(
         _ body: @Sendable @escaping (Database) throws -> T
     ) async throws -> T {
-        do {
-            return try await storage.pool.read(body)
-        } catch let error as StorageError {
-            throw error
-        } catch {
-            throw StorageError.unavailable("read failed: \(error)")
-        }
+        try await storage.read(body)
     }
 }

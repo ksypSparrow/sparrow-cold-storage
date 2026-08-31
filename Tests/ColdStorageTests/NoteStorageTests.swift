@@ -53,7 +53,7 @@ struct NoteStorageTests {
         let storage = try ColdStorage.inMemory()
         await #expect(throws: StorageError.notFound) {
             try await storage.transactions.write { session in
-                try await session.notes.update(makeNote("Ghost"))
+                try session.notes.update(makeNote("Ghost"))
             }
         }
     }
