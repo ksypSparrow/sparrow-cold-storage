@@ -1,13 +1,22 @@
 {
-  "originHash" : "c24fd2f5082168be7cc78b1b6b6d2ce5614fb78bae470fbe57335ccdd7d7b8f6",
+  "originHash" : "86f2d238d56b5626ff0ad9e1d69a8271f473420a2885203f37d99cac8e05bab6",
   "pins" : [
+    {
+      "identity" : "grdb.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/groue/GRDB.swift",
+      "state" : {
+        "revision" : "b83108d10f42680d78f23fe4d4d80fc88dab3212",
+        "version" : "7.11.1"
+      }
+    },
     {
       "identity" : "sparrow-domain",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ksypSparrow/sparrow-domain",
       "state" : {
-        "revision" : "953ccc31387493407cf8d290ace9e4be30b7e2f2",
-        "version" : "0.1.0"
+        "revision" : "d55c05bb64cfdd206e11b5d45bdba6528d54a7cb",
+        "version" : "0.2.0"
       }
     }
   ],

@@ -7,15 +7,18 @@ import StorageContracts
 /// a writer.** There is no public path to a write that skips a transaction.
 public struct StorageSet: Sendable {
     public let notes: any NoteReading
+    public let notebooks: any NotebookReading
     public let transactions: any TransactionRunning
     public let observer: any StorageObserving
 
     init(
         notes: any NoteReading,
+        notebooks: any NotebookReading,
         transactions: any TransactionRunning,
         observer: any StorageObserving
     ) {
         self.notes = notes
+        self.notebooks = notebooks
         self.transactions = transactions
         self.observer = observer
     }
@@ -37,6 +40,28 @@ public enum ColdStorage {
         let store = InMemoryStore(broadcaster: broadcaster)
         return StorageSet(
             notes: InMemoryNoteReader(store: store),
+            notebooks: InMemoryNotebookReader(store: store),
+            transactions: InMemoryTransactionRunner(store: store),
+            observer: InMemoryObserver(broadcaster: broadcaster)
+        )
+    }
+
+    /// Opens the store at `url`, running any migrations it needs, and returns
+    /// the protocols the rest of the app is allowed to hold.
+    ///
+    /// ⚠️ **In 0.2.0 this persists notebooks, and notes are still in memory.**
+    /// The `note` table arrives with migration v2 in 0.4.0, so a note created
+    /// today does not survive a relaunch. Notebooks do. Nothing about this
+    /// signature changes when notes join them — which is the point of handing
+    /// back protocols.
+    public static func make(at url: URL) throws -> StorageSet {
+        let broadcaster = ChangeBroadcaster()
+        let storage = try SQLiteStorage(at: url)
+        let store = InMemoryStore(broadcaster: broadcaster)
+
+        return StorageSet(
+            notes: InMemoryNoteReader(store: store),
+            notebooks: SQLiteNotebookRepository(storage: storage),
             transactions: InMemoryTransactionRunner(store: store),
             observer: InMemoryObserver(broadcaster: broadcaster)
         )

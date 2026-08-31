@@ -11,6 +11,7 @@ import StorageContracts
 /// held to the same tests later.
 actor InMemoryStore {
     private var notes: [NoteID: Note] = [:]
+    private var notebooks: [NotebookID: Notebook]
     private var tombstones: [NoteID: Date] = [:]
     private var indexed: [NoteID: String] = [:]
     private var journal: [JournalEntry] = []
@@ -21,12 +22,46 @@ actor InMemoryStore {
     private var snapshot: Snapshot?
     private var touched: Set<NoteID> = []
 
-    init(broadcaster: ChangeBroadcaster) {
+    init(broadcaster: ChangeBroadcaster, seededAt date: Date = Date()) {
         self.broadcaster = broadcaster
+        // Seeded exactly as migration v1 seeds the SQLite store, so
+        // `.inMemory()` and `.make(at:)` answer `defaultNotebook()` alike.
+        let seed = DefaultNotebook.make(at: date)
+        self.notebooks = [seed.id: seed]
+    }
+
+    // MARK: Notebooks
+
+    func notebook(_ id: NotebookID) -> Notebook? {
+        notebooks[id]
+    }
+
+    func allNotebooks() -> [Notebook] {
+        notebooks.values.sorted(by: Notebook.orderedBySiblingPosition)
+    }
+
+    func notebook(named name: String) -> Notebook? {
+        notebooks.values
+            .filter { $0.name.lowercased() == name.lowercased() }
+            .min(by: Notebook.orderedBySiblingPosition)
+    }
+
+    func defaultNotebook() throws -> Notebook {
+        if let seeded = notebooks[DefaultNotebook.identifier] {
+            return seeded
+        }
+        guard let candidate = notebooks.values
+            .filter(\.isTopLevel)
+            .min(by: Notebook.orderedBySiblingPosition)
+        else {
+            throw StorageError.corrupted("the store has no notebooks")
+        }
+        return candidate
     }
 
     private struct Snapshot {
         let notes: [NoteID: Note]
+        let notebooks: [NotebookID: Notebook]
         let tombstones: [NoteID: Date]
         let indexed: [NoteID: String]
         let journal: [JournalEntry]
@@ -140,6 +175,7 @@ actor InMemoryStore {
         await writeLock.acquire()
         snapshot = Snapshot(
             notes: notes,
+            notebooks: notebooks,
             tombstones: tombstones,
             indexed: indexed,
             journal: journal,
@@ -160,6 +196,7 @@ actor InMemoryStore {
     func rollback() async {
         if let snapshot {
             notes = snapshot.notes
+            notebooks = snapshot.notebooks
             tombstones = snapshot.tombstones
             indexed = snapshot.indexed
             journal = snapshot.journal

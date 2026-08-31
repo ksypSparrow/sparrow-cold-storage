@@ -11,14 +11,21 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/ksypSparrow/sparrow-domain",
-            .upToNextMinor(from: "0.1.0")
+            .upToNextMinor(from: "0.2.0")
+        ),
+        .package(
+            url: "https://github.com/groue/GRDB.swift",
+            .upToNextMinor(from: "7.11.0")
         ),
     ],
     targets: [
         .target(name: "StorageContracts", dependencies: [
             .product(name: "SparrowDomain", package: "sparrow-domain"),
         ]),
-        .target(name: "ColdStorage", dependencies: ["StorageContracts"]),
+        .target(name: "ColdStorage", dependencies: [
+            "StorageContracts",
+            .product(name: "GRDB", package: "GRDB.swift"),
+        ]),
         .testTarget(name: "ColdStorageTests", dependencies: [
             "ColdStorage",
             "StorageContracts",
