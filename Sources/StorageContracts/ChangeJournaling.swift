@@ -15,8 +15,8 @@ public protocol ChangeJournaling: Sendable {
 public struct JournalEntry: Identifiable, Hashable, Sendable {
     public enum Subject: Hashable, Sendable {
         case note(NoteID)
-        // notebook and tag subjects arrive with their domain types, in 0.2.0
-        // and 0.7.0 respectively.
+        case notebook(NotebookID)
+        // The tag subject arrives with its domain type, in 0.7.0.
     }
 
     public enum Operation: String, Hashable, Sendable {
