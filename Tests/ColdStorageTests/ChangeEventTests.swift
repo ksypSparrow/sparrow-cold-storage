@@ -26,7 +26,7 @@ struct ChangeEventTests {
 
         await #expect(throws: Boom.self) {
             try await storage.transactions.write { session in
-                try await session.notes.insert(makeNote("Doomed"))
+                try session.notes.insert(makeNote("Doomed"))
                 throw Boom()
             }
         }

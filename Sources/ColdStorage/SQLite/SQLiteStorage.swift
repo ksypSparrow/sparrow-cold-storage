@@ -31,4 +31,32 @@ final class SQLiteStorage: Sendable {
             )
         }
     }
+
+    /// A read outside any transaction.
+    func read<T: Sendable>(
+        _ body: @Sendable @escaping (Database) throws -> T
+    ) async throws -> T {
+        do {
+            return try await pool.read(body)
+        } catch let error as StorageError {
+            throw error
+        } catch {
+            throw StorageError.unavailable("read failed: \(error)")
+        }
+    }
+
+    /// A write in its own transaction, for storage's own bookkeeping.
+    ///
+    /// Callers reach writes through `TransactionRunning`, never through this.
+    func write<T: Sendable>(
+        _ body: @Sendable @escaping (Database) throws -> T
+    ) async throws -> T {
+        do {
+            return try await pool.write(body)
+        } catch let error as StorageError {
+            throw error
+        } catch {
+            throw StorageError.unavailable("write failed: \(error)")
+        }
+    }
 }

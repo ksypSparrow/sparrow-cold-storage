@@ -15,8 +15,8 @@ struct TransactionTests {
 
         await #expect(throws: Boom.self) {
             try await storage.transactions.write { session in
-                try await session.notes.insert(note)
-                try await session.index.index(note)
+                try session.notes.insert(note)
+                try session.index.index(note)
                 throw Boom()
             }
         }
@@ -34,11 +34,10 @@ struct TransactionTests {
         await #expect(throws: Boom.self) {
             try await storage.transactions.write { session in
                 let doomed = makeNote("Doomed", body: "heron", at: 60)
-                try await session.notes.insert(doomed)
-                try await session.index.index(doomed)
-                try await session.journal.record(
-                    JournalEntry(
-                        sequence: 99,
+                try session.notes.insert(doomed)
+                try session.index.index(doomed)
+                try session.journal.record(
+                    JournalDraft(
                         subject: .note(doomed.id),
                         operation: .upsert,
                         payload: Data(),
@@ -49,14 +48,10 @@ struct TransactionTests {
             }
         }
 
-        let hits = try await storage.transactions.write { session in
-            try await session.index.matches("heron", limit: 10)
-        }
+        let hits = try await storage.search.matches("heron", limit: 10)
         #expect(hits == [kept.id])
 
-        let pending = try await storage.transactions.write { session in
-            try await session.journal.pending(limit: 10)
-        }
+        let pending = try await storage.journal.pending(limit: 10)
         #expect(pending.count == 1)
     }
 

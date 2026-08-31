@@ -9,6 +9,56 @@ Pre-1.0, **the minor is the breaking bump**. Dependents pin with
 
 ## [Unreleased]
 
+## [0.3.0] — wave 2 · transactions, journal, change events
+
+Depends on **SparrowDomain 0.3.0**. The machinery every later write depends on.
+
+### Changed — breaking
+
+⚠️ **`StorageSession` is now synchronous and not `Sendable`, and
+`TransactionRunning.write` takes a synchronous body.**
+
+A GRDB `Database` belongs to one connection on one thread; GRDB's own `write`
+takes a *synchronous* closure for exactly that reason. A session whose members
+were `async` could not be implemented over it honestly. The synchronous body is
+also the better contract — it makes it impossible to `await` a network call
+while holding the write lock.
+
+Reads outside a transaction stay `async`. Inside one, everything is sync:
+
+| Outside | Inside `write { }` |
+|---|---|
+| `NoteReading` async | `NoteSessionAccess` sync |
+| `NotebookReading` async | `NotebookSessionAccess` sync |
+| `SearchIndexing` async | `SearchIndexWriting` sync |
+| `ChangeJournaling` async | `ChangeJournalWriting` sync |
+
+- `NoteWriting` → `NoteSessionAccess`; `SearchIndexing.index`/`remove` →
+  `SearchIndexWriting`; `ChangeJournaling.record` → `ChangeJournalWriting`.
+- `JournalDraft` is new, and `record` takes it. A caller no longer supplies a
+  `sequence` — storage assigns it, because a caller that could choose one could
+  restart at 1 and silently reorder the sync stream.
+- `StorageSet` gains `search` and `journal` readers.
+
+### Added
+
+- `SQLiteTransactionRunner` — one GRDB transaction per `write { }`.
+- `SQLiteSession`, `SQLiteNotebookSession` — notebook writes.
+- `SQLiteJournalSession` / `SQLiteJournalReader` — the journal's first writer,
+  with `seq` from SQLite's own counter.
+- Cycle detection: a notebook cannot become its own ancestor. SQLite's foreign
+  key cannot express this — a cycle is a valid set of references.
+- Session invalidation: a session captured past `write { }` throws.
+
+### Notes
+
+- Change events are published **after** the write closure returns, which is
+  after COMMIT. GRDB's `TransactionObserver.databaseDidCommit` fires while
+  still inside the write barrier; publishing there would let a consumer read
+  from inside the writer's critical section.
+- Note storage and the index are still in memory. `SQLiteSession` returns them
+  as `unavailable` rather than silently accepting a write that goes nowhere.
+
 ## [0.2.0] — wave 1 · SQLite and notebook reads
 
 Depends on **SparrowDomain 0.2.0**. Adds the first real database.

@@ -23,11 +23,10 @@ extension StorageSet {
     @discardableResult
     func save(_ note: Note) async throws -> Note {
         try await transactions.write { session in
-            try await session.notes.insert(note)
-            try await session.index.index(note)
-            try await session.journal.record(
-                JournalEntry(
-                    sequence: 1,
+            try session.notes.insert(note)
+            try session.index.index(note)
+            try session.journal.record(
+                JournalDraft(
                     subject: .note(note.id),
                     operation: .upsert,
                     payload: try JSONEncoder().encode(note),

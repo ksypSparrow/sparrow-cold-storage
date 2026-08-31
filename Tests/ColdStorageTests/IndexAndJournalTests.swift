@@ -11,9 +11,7 @@ struct IndexAndJournalTests {
         let storage = try ColdStorage.inMemory()
         try await storage.save(makeNote("Kingfisher", body: "North Bank"))
 
-        let hits = try await storage.transactions.write { session in
-            try await session.index.matches("north bank", limit: 10)
-        }
+        let hits = try await storage.search.matches("north bank", limit: 10)
         #expect(hits.count == 1)
     }
 
@@ -22,9 +20,7 @@ struct IndexAndJournalTests {
         let storage = try ColdStorage.inMemory()
         try await storage.save(makeNote("Kingfisher"))
 
-        let hits = try await storage.transactions.write { session in
-            try await session.index.matches("   ", limit: 10)
-        }
+        let hits = try await storage.search.matches("   ", limit: 10)
         #expect(hits.isEmpty)
     }
 
@@ -35,16 +31,14 @@ struct IndexAndJournalTests {
         try await storage.save(note)
 
         try await storage.transactions.write { session in
-            try await session.notes.markDeleted(note.id, at: Date())
-            try await session.index.remove(note.id)
+            try session.notes.markDeleted(note.id, at: Date())
+            try session.index.remove(note.id)
         }
 
         #expect(try await storage.notes.note(note.id) == nil)
         #expect(try await storage.notes.count() == 0)
 
-        let hits = try await storage.transactions.write { session in
-            try await session.index.matches("heron", limit: 10)
-        }
+        let hits = try await storage.search.matches("heron", limit: 10)
         #expect(hits.isEmpty)
     }
 
@@ -55,10 +49,9 @@ struct IndexAndJournalTests {
         try await storage.save(note)
 
         try await storage.transactions.write { session in
-            try await session.notes.markDeleted(note.id, at: note.updatedAt)
-            try await session.journal.record(
-                JournalEntry(
-                    sequence: 2,
+            try session.notes.markDeleted(note.id, at: note.updatedAt)
+            try session.journal.record(
+                JournalDraft(
                     subject: .note(note.id),
                     operation: .delete,
                     payload: Data(),
@@ -67,9 +60,7 @@ struct IndexAndJournalTests {
             )
         }
 
-        let pending = try await storage.transactions.write { session in
-            try await session.journal.pending(limit: 10)
-        }
+        let pending = try await storage.journal.pending(limit: 10)
         #expect(pending.map(\.operation) == [.upsert, .delete])
         #expect(pending.allSatisfy { $0.subject == .note(note.id) })
     }
@@ -79,14 +70,10 @@ struct IndexAndJournalTests {
         let storage = try ColdStorage.inMemory()
         try await storage.save(makeNote("Journalled"))
 
-        try await storage.transactions.write { session in
-            let pending = try await session.journal.pending(limit: 10)
-            try await session.journal.clear(pending.map(\.id))
-        }
+        let pending = try await storage.journal.pending(limit: 10)
+        try await storage.journal.clear(pending.map(\.id))
 
-        let remaining = try await storage.transactions.write { session in
-            try await session.journal.pending(limit: 10)
-        }
+        let remaining = try await storage.journal.pending(limit: 10)
         #expect(remaining.isEmpty)
     }
 }

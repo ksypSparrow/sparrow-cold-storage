@@ -1,16 +1,21 @@
 import Foundation
 import SparrowDomain
 
-/// The full-text index over note content.
+/// Searching the index, from outside a transaction.
 ///
-/// Backed by a naive substring scan in 0.1.0 and by SQLite FTS5 from 0.5.0. The
-/// protocol does not change between the two.
+/// Backed by a naive substring scan until 0.5.0 replaces it with SQLite FTS5.
+/// The protocol does not change between the two.
 public protocol SearchIndexing: Sendable {
-    func index(_ note: Note) async throws
-    func remove(_ id: NoteID) async throws
     func matches(_ text: String, limit: Int) async throws -> [NoteID]
 
     /// Discards and rebuilds the whole index. Used after a bulk import or a
     /// migration that changes tokenisation.
     func rebuild() async throws
+}
+
+/// Maintaining the index inside a transaction, so a note and its index entry
+/// are written together or not at all.
+public protocol SearchIndexWriting {
+    func index(_ note: Note) throws
+    func remove(_ id: NoteID) throws
 }
