@@ -21,8 +21,23 @@ struct InMemoryNoteReader: NoteReading {
         return store.read { Array($0.liveNotes().prefix(limit)) }
     }
 
-    func count() async throws -> Int {
-        store.read { $0.liveNotes().count }
+    func notes(
+        matching filter: NoteFilter,
+        sort: NoteSort,
+        limit: Int
+    ) async throws -> [Note] {
+        guard limit > 0 else { return [] }
+        return store.read { state in
+            Array(
+                state.notes(matching: filter)
+                    .sorted(by: sort.orders)
+                    .prefix(limit)
+            )
+        }
+    }
+
+    func count(matching filter: NoteFilter) async throws -> Int {
+        store.read { $0.notes(matching: filter).count }
     }
 }
 

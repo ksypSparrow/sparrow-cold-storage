@@ -167,6 +167,25 @@ final class InMemoryState: @unchecked Sendable {
         }
     }
 
+    /// Applies a filter.
+    ///
+    /// The structural fields come from `NoteFilter.matchesFields(of:)` — the
+    /// domain's own definition, so this cannot drift from what the SQL
+    /// compiler is checked against. Text goes through `SearchText`, which
+    /// mirrors FTS5.
+    func notes(matching filter: NoteFilter) -> [Note] {
+        let terms = filter.requiresTextSearch
+            ? SearchText.terms(in: filter.text ?? "")
+            : []
+
+        return liveNotes().filter { note in
+            guard filter.matchesFields(of: note) else { return false }
+            guard !terms.isEmpty else { return true }
+            guard let haystack = indexed[note.id] else { return false }
+            return SearchText.matches(terms, in: haystack)
+        }
+    }
+
     // MARK: Index
 
     func index(_ note: Note) {

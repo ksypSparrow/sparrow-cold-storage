@@ -47,6 +47,16 @@ final class StoreFixture {
 /// A temporary database path that cleans up after itself, for tests that need
 /// to open the same file twice.
 func withTemporaryDatabase<T>(
+    _ body: (URL) async throws -> T
+) async rethrows -> T {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("sparrow-tests-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: directory) }
+    return try await body(directory.appendingPathComponent("sparrow.sqlite"))
+}
+
+/// The synchronous form, for tests that never await inside.
+func withTemporaryDatabase<T>(
     _ body: (URL) throws -> T
 ) rethrows -> T {
     let directory = FileManager.default.temporaryDirectory

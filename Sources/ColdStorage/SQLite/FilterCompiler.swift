@@ -1,0 +1,80 @@
+import Foundation
+import GRDB
+import SparrowDomain
+import StorageContracts
+
+/// Turns a `NoteFilter` into bound SQL.
+///
+/// ⚠️ **Never string-interpolate a value into the SQL.** Every value becomes a
+/// `?` with an argument beside it. A note title is arbitrary text a person
+/// typed, and a filter is built from what a Shortcut passed in — neither is
+/// trustworthy, and a single interpolated quote is the whole class of bug.
+enum FilterCompiler {
+    struct Predicate {
+        /// Conditions joined with AND. Always includes the tombstone check.
+        let sql: String
+        let arguments: StatementArguments
+    }
+
+    /// The structural fields, compiled. `text` is not here — it is answered by
+    /// FTS5, which `SQLiteNoteRepository` joins separately.
+    static func predicate(for filter: NoteFilter) -> Predicate {
+        var conditions: [String] = ["n.deleted_at IS NULL"]
+        var arguments: [any DatabaseValueConvertible] = []
+
+        if let notebookID = filter.notebookID {
+            conditions.append("n.notebook_id = ?")
+            arguments.append(notebookID.value.uuidString)
+        }
+
+        // ⚠️ An **empty** set means *any kind* — so it compiles to no clause
+        // at all. The natural translation, `IN ()`, is both invalid SQLite and
+        // the opposite of what the filter means.
+        if !filter.kinds.isEmpty {
+            // Sorted so the same filter always produces the same SQL, which
+            // keeps SQLite's statement cache useful.
+            let kinds = filter.kinds.map(\.rawValue).sorted()
+            let placeholders = Array(repeating: "?", count: kinds.count)
+                .joined(separator: ", ")
+            conditions.append("n.kind IN (\(placeholders))")
+            arguments.append(contentsOf: kinds)
+        }
+
+        if let isPinned = filter.isPinned {
+            conditions.append("n.is_pinned = ?")
+            arguments.append(isPinned)
+        }
+
+        if let created = filter.createdWithin {
+            conditions.append("n.created_at >= ? AND n.created_at <= ?")
+            arguments.append(created.start.timeIntervalSince1970)
+            arguments.append(created.end.timeIntervalSince1970)
+        }
+
+        if let updated = filter.updatedWithin {
+            conditions.append("n.updated_at >= ? AND n.updated_at <= ?")
+            arguments.append(updated.start.timeIntervalSince1970)
+            arguments.append(updated.end.timeIntervalSince1970)
+        }
+
+        return Predicate(
+            sql: conditions.joined(separator: " AND "),
+            arguments: StatementArguments(arguments)
+        )
+    }
+
+    /// The ORDER BY, matching `NoteSort.orders(_:before:)` exactly — including
+    /// the identifier tiebreak, without which two notes saved in the same
+    /// second would reshuffle between reads.
+    static func orderClause(for sort: NoteSort) -> String {
+        let direction = sort.order == .ascending ? "ASC" : "DESC"
+        let column = switch sort.field {
+        case .updated: "n.updated_at"
+        case .created: "n.created_at"
+        // `Note.happenedAt`: the observation, falling back to creation.
+        case .observed: "COALESCE(n.observed_at, n.created_at)"
+        case .title: "n.title_plain COLLATE NOCASE"
+        }
+        return "ORDER BY \(column) \(direction), n.id \(direction)"
+    }
+}
