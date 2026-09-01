@@ -41,3 +41,16 @@ extension StorageSet {
         }
     }
 }
+
+
+/// A notebook with deterministic timestamps.
+func makeNotebook(_ name: String, parent: NotebookID? = nil) -> Notebook {
+    let base = Date(timeIntervalSince1970: 1_700_000_000)
+    return Notebook(
+        name: name,
+        parentID: parent,
+        sortIndex: 0,
+        createdAt: base,
+        updatedAt: base
+    )
+}

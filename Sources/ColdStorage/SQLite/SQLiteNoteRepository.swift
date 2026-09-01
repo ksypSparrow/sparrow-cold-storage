@@ -42,8 +42,73 @@ struct SQLiteNoteRepository: NoteReading {
         }.map { try $0.toDomain() }
     }
 
-    func count() async throws -> Int {
-        try await storage.read { db in try NoteRow.live().fetchCount(db) }
+    func notes(
+        matching filter: NoteFilter,
+        sort: NoteSort,
+        limit: Int
+    ) async throws -> [Note] {
+        guard limit > 0 else { return [] }
+        return try await fetch(filter, order: FilterCompiler.orderClause(for: sort), limit: limit)
+            .map { try $0.toDomain() }
+    }
+
+    func count(matching filter: NoteFilter) async throws -> Int {
+        let predicate = FilterCompiler.predicate(for: filter)
+        var arguments = predicate.arguments
+
+        // ⚠️ One statement, not two.
+        //
+        // The plan describes running FTS first and intersecting the result.
+        // A join does the same thing and is strictly better: the LIMIT applies
+        // after *both* filters, so a text search that matches ten thousand
+        // notes does not have to materialise ten thousand identifiers to
+        // return twenty. It also lets SQLite choose the order to apply them.
+        let (join, matchClause) = textJoin(for: filter, arguments: &arguments)
+
+        return try await storage.read { [arguments] db in
+            try Int.fetchOne(db, sql: """
+                SELECT COUNT(*) FROM note n
+                \(join)
+                 WHERE \(predicate.sql)\(matchClause)
+                """, arguments: arguments) ?? 0
+        }
+    }
+
+    private func fetch(
+        _ filter: NoteFilter,
+        order: String,
+        limit: Int
+    ) async throws -> [NoteRow] {
+        let predicate = FilterCompiler.predicate(for: filter)
+        var arguments = predicate.arguments
+        let (join, matchClause) = textJoin(for: filter, arguments: &arguments)
+        arguments += [limit]
+
+        return try await storage.read { [arguments] db in
+            try NoteRow.fetchAll(db, sql: """
+                SELECT n.* FROM note n
+                \(join)
+                 WHERE \(predicate.sql)\(matchClause)
+                \(order)
+                 LIMIT ?
+                """, arguments: arguments)
+        }
+    }
+
+    /// The FTS half, present only when the filter actually asks for text.
+    /// A filter with no text never touches the index.
+    private func textJoin(
+        for filter: NoteFilter,
+        arguments: inout StatementArguments
+    ) -> (join: String, matchClause: String) {
+        guard filter.requiresTextSearch,
+              let text = filter.text,
+              let query = FTSQuery.make(from: text)
+        else {
+            return ("", "")
+        }
+        arguments += [query]
+        return ("JOIN note_fts f ON f.note_id = n.id", " AND note_fts MATCH ?")
     }
 }
 

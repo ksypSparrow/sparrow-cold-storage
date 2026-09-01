@@ -9,6 +9,39 @@ Pre-1.0, **the minor is the breaking bump**. Dependents pin with
 
 ## [Unreleased]
 
+## [0.6.0] — wave 5 · filter compiler
+
+Depends on **SparrowDomain 0.5.0**.
+
+### Added
+
+- `FilterCompiler` — `NoteFilter` → bound SQL, plus the ORDER BY.
+- `NoteReading.notes(matching:sort:limit:)` and `count(matching:)`.
+- `NoteReading.count()` is now a protocol extension over `count(matching: .all)`.
+
+### Notes
+
+- **Never string-interpolate a value.** Every value becomes a `?` with an
+  argument beside it — a filter is built from whatever a Shortcut passed in,
+  and one interpolated quote is the whole class of bug. Tests run `'; DROP
+  TABLE note; --` against a real database and check the table survives.
+- **An empty `kinds` set compiles to no clause at all.** The natural
+  translation, `IN ()`, is both invalid SQLite and the opposite of what the
+  filter means.
+- **One statement, not two.** The plan describes running FTS first and
+  intersecting; a join does the same thing and is strictly better — the LIMIT
+  applies after *both* filters, so a text search matching ten thousand notes
+  does not materialise ten thousand identifiers to return twenty.
+- **A filter with no text never touches the index.** Proved by dropping the FTS
+  table and running the query anyway.
+- The ORDER BY reproduces `NoteSort.orders(_:before:)` exactly, tiebreak
+  included. The sorting test compares SQL output against the domain's own
+  ordering rather than a hand-written expectation, which is what stops the two
+  definitions drifting.
+- The in-memory store evaluates the same filter through
+  `NoteFilter.matchesFields(of:)`, so both stores share one definition of the
+  structural fields.
+
 ## [0.5.0] — wave 4 · full-text search
 
 **No domain change.** `search` takes a `String` and returns `[Note]`, both of

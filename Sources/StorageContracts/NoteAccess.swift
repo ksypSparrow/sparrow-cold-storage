@@ -7,7 +7,22 @@ public protocol NoteReading: Sendable {
     func note(_ id: NoteID) async throws -> Note?
     func notes(_ ids: [NoteID]) async throws -> [Note]
     func recentNotes(limit: Int) async throws -> [Note]
-    func count() async throws -> Int
+
+    /// The Find query: structural fields, optional free text, and an order.
+    func notes(
+        matching filter: NoteFilter,
+        sort: NoteSort,
+        limit: Int
+    ) async throws -> [Note]
+
+    func count(matching filter: NoteFilter) async throws -> Int
+}
+
+public extension NoteReading {
+    /// Every live note. `count(matching: .all)`, named for the common case.
+    func count() async throws -> Int {
+        try await count(matching: .all)
+    }
 }
 
 /// Reading and writing notes **inside** a transaction.
