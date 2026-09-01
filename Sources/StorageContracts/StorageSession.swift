@@ -30,6 +30,7 @@ import Foundation
 public protocol StorageSession {
     var notes: any NoteSessionAccess { get }
     var notebooks: any NotebookSessionAccess { get }
+    var tags: any TagSessionAccess { get }
     var index: any SearchIndexWriting { get }
     var journal: any ChangeJournalWriting { get }
 }

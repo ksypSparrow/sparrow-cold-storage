@@ -58,6 +58,7 @@ tombstone a deleted note reappears from another device the first time V2 syncs.
 | 0.4.0 | SQLite | migration v2, notes — everything persists |
 | 0.5.0 | SQLite + FTS5 | migration v3, full-text search |
 | 0.6.0 | SQLite + FTS5 | filter compiler, Find queries |
+| 0.7.0 | SQLite + FTS5 | migration v4, tags |
 
 ## Build
 

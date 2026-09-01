@@ -16,6 +16,7 @@ public protocol StorageObserving: Sendable {
 public enum StoredChange: Hashable, Sendable {
     case notes([NoteID])
     case notebooks([NotebookID])
+    case tags([TagID])
     /// Bulk import, migration, restore. Assume everything changed.
     case reloaded
 }

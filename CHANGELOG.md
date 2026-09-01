@@ -9,6 +9,45 @@ Pre-1.0, **the minor is the breaking bump**. Dependents pin with
 
 ## [Unreleased]
 
+## [0.7.0] — wave 6 · tags
+
+Depends on **SparrowDomain 0.6.0**.
+
+### Added
+
+- `Migrations.v4_tags` — the `tag` table and the `note_tag` join.
+- `TagReading` and `TagSessionAccess`; `TagRow`, `SQLiteTagRepository`,
+  `SQLiteTagSession`.
+- `NoteFilter.tagIDs` compiles to one `EXISTS` per tag.
+- `StorageSet.tags`; `JournalEntry.Subject.tag`; `StoredChange.tags`.
+
+### Notes
+
+- **`note_tag` carries a `position`.** Tag order is user-visible, and a plain
+  join returns rows in whatever order SQLite finds convenient — a note whose
+  tags reshuffle between reads looks like a bug in the view that drew it.
+- ⚠️ **One `EXISTS` per tag, not `tag_id IN (…)`.** `IN` matches a note
+  carrying *any* of them; `NoteFilter.tagIDs` requires *all* of them. The
+  difference is silent: the query runs and returns too much.
+- **`upsert`, not `insert`.** Tags arrive by being used — someone types
+  `#wetlands` on a note — so there is no separate create step to fail on a
+  duplicate. Re-using a tombstoned tag revives it, because typing it again
+  means *the* tag.
+- **Deleting a tag leaves the `note_tag` rows.** A tombstoned tag disappears
+  from reads because they join through `tag`, but the link survives — so
+  reviving the tag restores it, and V2 merging a delete-here/keep-there does
+  not have to invent the association again.
+- Tags are fetched for a page of notes in **one** extra query, not one per
+  note.
+
+### The parity gate, a third time
+
+`Deleting a tag leaves its notes intact` and `A tombstoned tag matches nothing`
+passed on `.make(at:)` and failed on `.inMemory()`. SQLite hides a deleted tag
+for free — reads join through `tag`, which filters tombstones. In memory the
+identifiers live on the note value, so nothing filtered them. The in-memory
+store now projects a note's tags through the live set.
+
 ## [0.6.0] — wave 5 · filter compiler
 
 Depends on **SparrowDomain 0.5.0**.

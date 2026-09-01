@@ -25,6 +25,10 @@ enum Migrations {
             try populateSearchIndex(db)
         }
 
+        migrator.registerMigration("v4_tags") { db in
+            try createTagTables(db)
+        }
+
         return migrator
     }
 
@@ -161,6 +165,48 @@ enum Migrations {
               FROM note
              WHERE deleted_at IS NULL
             """)
+    }
+
+    // MARK: v4
+
+    private static func createTagTables(_ db: Database) throws {
+        try db.create(table: "tag") { t in
+            // The slug *is* the identity — see `TagID`. No surrogate key,
+            // because two devices that have never met must agree on it.
+            t.primaryKey("id", .text)
+            t.column("label", .text).notNull()
+            t.column("created_at", .double).notNull()
+            t.column("updated_at", .double).notNull()
+
+            t.column("owner_id", .text)
+            t.column("local_version", .integer).notNull().defaults(to: 0)
+            t.column("remote_version", .integer)
+            t.column("deleted_at", .double)
+            t.column("last_editor", .text)
+        }
+
+        try db.create(table: "note_tag") { t in
+            t.column("note_id", .text).notNull()
+                .references("note", onDelete: .cascade)
+            t.column("tag_id", .text).notNull()
+                .references("tag", onDelete: .cascade)
+
+            // ⚠️ The order a person added tags is visible to them, and a plain
+            // join returns rows in whatever order SQLite finds convenient. A
+            // note whose tags reshuffle between reads looks like a bug in the
+            // view that drew it.
+            t.column("position", .integer).notNull().defaults(to: 0)
+
+            t.primaryKey(["note_id", "tag_id"])
+        }
+
+        // "Which notes have this tag" is the filter's question, and it reads
+        // the join backwards from its primary key.
+        try db.create(
+            index: "note_tag_on_tag",
+            on: "note_tag",
+            columns: ["tag_id"]
+        )
     }
 
     private static func seedDefaultNotebook(_ db: Database) throws {

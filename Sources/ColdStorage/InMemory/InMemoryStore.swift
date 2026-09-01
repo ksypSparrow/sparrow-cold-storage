@@ -31,15 +31,18 @@ final class InMemoryStore: Sendable {
     ) throws -> T {
         var touchedNotes: Set<NoteID> = []
         var touchedNotebooks: Set<NotebookID> = []
+        var touchedTags: Set<TagID> = []
 
         let result = try state.withLock { state -> T in
             let snapshot = state.snapshot()
             state.touchedNotes = []
             state.touchedNotebooks = []
+            state.touchedTags = []
             do {
                 let result = try body(state)
                 touchedNotes = state.touchedNotes
                 touchedNotebooks = state.touchedNotebooks
+                touchedTags = state.touchedTags
                 return result
             } catch {
                 state.restore(from: snapshot)
@@ -52,6 +55,9 @@ final class InMemoryStore: Sendable {
         }
         if !touchedNotebooks.isEmpty {
             broadcaster.publish(.notebooks(Array(touchedNotebooks)))
+        }
+        if !touchedTags.isEmpty {
+            broadcaster.publish(.tags(Array(touchedTags)))
         }
         return result
     }

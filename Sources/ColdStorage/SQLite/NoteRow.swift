@@ -72,7 +72,9 @@ extension NoteRow {
     /// - Throws: `StorageError.corrupted` for anything that will not parse.
     ///   A row that yielded a silently empty note would be a far harder bug to
     ///   find than a thrown one.
-    func toDomain() throws -> Note {
+    /// - Parameter tagIDs: from `note_tag`. A row alone cannot produce a
+    ///   complete note, which is why every read fetches the join alongside.
+    func toDomain(tagIDs: [TagID] = []) throws -> Note {
         guard let uuid = UUID(uuidString: id) else {
             throw StorageError.corrupted("note.id is not a UUID: \(id)")
         }
@@ -90,6 +92,7 @@ extension NoteRow {
             title: RichText(plain: titlePlain, attributes: titleData),
             body: RichText(plain: bodyPlain, attributes: bodyData),
             notebookID: NotebookID(notebookUUID),
+            tagIDs: tagIDs,
             kind: kind,
             isPinned: isPinned,
             observedAt: observedAt.map(Date.init(timeIntervalSince1970:)),

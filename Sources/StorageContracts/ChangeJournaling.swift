@@ -31,7 +31,7 @@ public struct JournalEntry: Identifiable, Hashable, Sendable {
     public enum Subject: Hashable, Sendable {
         case note(NoteID)
         case notebook(NotebookID)
-        // The tag subject arrives with its domain type, in 0.7.0.
+        case tag(TagID)
     }
 
     public enum Operation: String, Hashable, Sendable {

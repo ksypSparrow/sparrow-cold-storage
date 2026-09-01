@@ -40,6 +40,24 @@ enum FilterCompiler {
             arguments.append(contentsOf: kinds)
         }
 
+        // ⚠️ One EXISTS per tag, not `tag_id IN (…)`.
+        //
+        // `IN` would match a note carrying *any* of them; `NoteFilter.tagIDs`
+        // requires *all* of them. The difference is silent — the query runs
+        // and returns too much — so it is worth the extra subquery.
+        for tagID in filter.tagIDs.map(\.slug).sorted() {
+            conditions.append("""
+                EXISTS (
+                    SELECT 1 FROM note_tag nt
+                      JOIN tag t ON t.id = nt.tag_id
+                     WHERE nt.note_id = n.id
+                       AND nt.tag_id = ?
+                       AND t.deleted_at IS NULL
+                )
+                """)
+            arguments.append(tagID)
+        }
+
         if let isPinned = filter.isPinned {
             conditions.append("n.is_pinned = ?")
             arguments.append(isPinned)

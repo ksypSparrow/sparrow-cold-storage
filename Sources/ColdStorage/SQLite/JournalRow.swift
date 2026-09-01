@@ -30,6 +30,15 @@ struct JournalRow: Codable, FetchableRecord, PersistableRecord {
     }
 }
 
+private func parseUUID(_ string: String, in table: String) throws -> UUID {
+    guard let value = UUID(uuidString: string) else {
+        throw StorageError.corrupted(
+            "journal.subject_id is not a UUID for \(table): \(string)"
+        )
+    }
+    return value
+}
+
 extension JournalRow {
     init(_ draft: JournalDraft, id: UUID) {
         seq = nil                       // SQLite assigns it
@@ -41,6 +50,9 @@ extension JournalRow {
         case .notebook(let notebookID):
             subjectType = "notebook"
             subjectID = notebookID.value.uuidString
+        case .tag(let tagID):
+            subjectType = "tag"
+            subjectID = tagID.slug
         }
         operation = draft.operation.rawValue
         payload = draft.payload
@@ -53,21 +65,28 @@ extension JournalRow {
         guard let uuid = UUID(uuidString: id) else {
             throw StorageError.corrupted("journal.id is not a UUID: \(id)")
         }
-        guard let subjectUUID = UUID(uuidString: subjectID) else {
-            throw StorageError.corrupted(
-                "journal.subject_id is not a UUID: \(subjectID)"
-            )
-        }
+
         guard let operation = JournalEntry.Operation(rawValue: operation) else {
             throw StorageError.corrupted(
                 "journal.operation is unknown: \(operation)"
             )
         }
 
+        // A tag's identity is a slug, not a UUID — so the identifier is only
+        // parsed as one where it should be.
         let subject: JournalEntry.Subject
         switch subjectType {
-        case "note": subject = .note(NoteID(subjectUUID))
-        case "notebook": subject = .notebook(NotebookID(subjectUUID))
+        case "note":
+            subject = .note(NoteID(try parseUUID(subjectID, in: "note")))
+        case "notebook":
+            subject = .notebook(NotebookID(try parseUUID(subjectID, in: "notebook")))
+        case "tag":
+            guard let tagID = TagID(slug: subjectID) else {
+                throw StorageError.corrupted(
+                    "journal.subject_id is not a valid slug: \(subjectID)"
+                )
+            }
+            subject = .tag(tagID)
         default:
             throw StorageError.corrupted(
                 "journal.subject_type is unknown: \(subjectType)"

@@ -31,6 +31,10 @@ struct InMemorySession: StorageSession {
     var notebooks: any NotebookSessionAccess {
         InMemoryNotebookSession(state: state, validity: validity)
     }
+    var tags: any TagSessionAccess {
+        InMemoryTagSession(state: state, validity: validity)
+    }
+
     var index: any SearchIndexWriting {
         InMemoryIndexSession(state: state, validity: validity)
     }
@@ -96,6 +100,26 @@ struct InMemoryNotebookSession: NotebookSessionAccess {
     func markDeleted(_ id: NotebookID, at date: Date) throws {
         try validity.check()
         try state.markNotebookDeleted(id, at: date)
+    }
+}
+
+struct InMemoryTagSession: TagSessionAccess {
+    let state: InMemoryState
+    let validity: SessionValidity
+
+    func tag(_ id: TagID) throws -> Tag? {
+        try validity.check()
+        return state.tag(id)
+    }
+
+    func upsert(_ tag: Tag) throws {
+        try validity.check()
+        state.upsert(tag)
+    }
+
+    func markDeleted(_ id: TagID, at date: Date) throws {
+        try validity.check()
+        try state.markTagDeleted(id, at: date)
     }
 }
 

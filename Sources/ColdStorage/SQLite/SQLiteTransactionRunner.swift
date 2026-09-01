@@ -19,7 +19,10 @@ struct SQLiteTransactionRunner: TransactionRunning {
                 let validity = SessionValidity()
                 defer { validity.invalidate() }
                 return try body(
-                    SQLiteSession(db: db, validity: validity, touched: touched)
+                    SQLiteSession(
+                        db: db, validity: validity,
+                        touched: touched, now: Date()
+                    )
                 )
             }
         } catch let error as StorageError {
@@ -40,6 +43,9 @@ struct SQLiteTransactionRunner: TransactionRunning {
         }
         if !touched.notebooks.isEmpty {
             broadcaster.publish(.notebooks(Array(touched.notebooks)))
+        }
+        if !touched.tags.isEmpty {
+            broadcaster.publish(.tags(Array(touched.tags)))
         }
         return result
     }
