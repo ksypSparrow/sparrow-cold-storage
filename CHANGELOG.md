@@ -9,6 +9,40 @@ Pre-1.0, **the minor is the breaking bump**. Dependents pin with
 
 ## [Unreleased]
 
+## [0.4.0] — wave 3 · note storage
+
+Depends on **SparrowDomain 0.4.0**. Notes finally persist.
+
+### Added
+
+- `Migrations.v2_note` — the `note` table, a foreign key to `notebook`, and
+  indexes on `(notebook_id, updated_at)` and `(kind, updated_at)`.
+- `NoteRow`, `SQLiteNoteRepository`, `SQLiteNoteSession`.
+
+### Changed
+
+- **`make(at:)` no longer touches the in-memory store.** Notes, notebooks and
+  the journal are all SQLite now. The half-persistent state introduced in 0.2.0
+  is over.
+- `UnavailableNoteSession` is gone.
+
+### Notes
+
+- **No `RichTextCoder`.** The plan called for one to archive `AttributedString`
+  into a blob. Domain 0.4.0's `RichText` already carries `plain` and
+  `attributes` separately, which maps directly onto the schema's `title_data` /
+  `title_plain` pair — the coder had nothing left to do.
+- **A corrupt attribute blob costs formatting and nothing else.** The plan
+  asked that one *throw* rather than yield an empty note; it cannot yield an
+  empty note any more, because the plain text is its own column. Strictly
+  better than throwing, and there is a test for it.
+- Index writes inside a transaction are **accepted and discarded** until FTS5
+  arrives in 0.5.0 — the text is in `note`, and 0.5.0 builds the index from
+  there. Refusing them would block every note write, since a save indexes in
+  the same transaction. Reading is different: `search.matches` throws
+  `.unavailable` rather than answering from an index that does not exist.
+- Sync columns stay on `NoteRow` and never on `Note`.
+
 ## [0.3.0] — wave 2 · transactions, journal, change events
 
 Depends on **SparrowDomain 0.3.0**. The machinery every later write depends on.

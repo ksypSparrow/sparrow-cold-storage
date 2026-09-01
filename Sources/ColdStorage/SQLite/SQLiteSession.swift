@@ -15,10 +15,7 @@ struct SQLiteSession: StorageSession {
     let touched: TouchedIdentifiers
 
     var notes: any NoteSessionAccess {
-        // The note table arrives with migration v2 in 0.4.0. Until then this
-        // session honestly reports that there is nowhere to put one, rather
-        // than accepting a write that goes nowhere.
-        UnavailableNoteSession()
+        SQLiteNoteSession(db: db, validity: validity, touched: touched)
     }
 
     var notebooks: any NotebookSessionAccess {
@@ -26,8 +23,7 @@ struct SQLiteSession: StorageSession {
     }
 
     var index: any SearchIndexWriting {
-        // FTS5 arrives in 0.5.0, alongside the notes it indexes.
-        UnavailableIndexSession()
+        DiscardingIndexSession(validity: validity)
     }
 
     var journal: any ChangeJournalWriting {
@@ -43,29 +39,4 @@ final class TouchedIdentifiers: @unchecked Sendable {
 
     func note(_ id: NoteID) { notes.insert(id) }
     func notebook(_ id: NotebookID) { notebooks.insert(id) }
-}
-
-/// Stands in for storage that does not exist yet.
-///
-/// Returning this rather than silently doing nothing means a caller that
-/// reaches for notes before 0.4.0 finds out at the call site, not by wondering
-/// where its data went.
-struct UnavailableNoteSession: NoteSessionAccess {
-    private var error: StorageError {
-        .unavailable("note storage arrives with migration v2, in 0.4.0")
-    }
-
-    func note(_ id: NoteID) throws -> Note? { throw error }
-    func insert(_ note: Note) throws { throw error }
-    func update(_ note: Note) throws { throw error }
-    func markDeleted(_ id: NoteID, at date: Date) throws { throw error }
-}
-
-struct UnavailableIndexSession: SearchIndexWriting {
-    private var error: StorageError {
-        .unavailable("the search index arrives with FTS5, in 0.5.0")
-    }
-
-    func index(_ note: Note) throws { throw error }
-    func remove(_ id: NoteID) throws { throw error }
 }

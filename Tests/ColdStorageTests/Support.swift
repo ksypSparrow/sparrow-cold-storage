@@ -7,19 +7,23 @@ import StorageContracts
 func makeNote(
     _ title: String,
     body: String = "",
+    in notebook: NotebookID = DefaultNotebook.identifier,
+    kind: NoteKind = .observation,
     at offset: TimeInterval = 0
 ) -> Note {
     let base = Date(timeIntervalSince1970: 1_700_000_000)
     return Note(
-        title: title,
-        body: body,
+        title: RichText(plain: title),
+        body: RichText(plain: body),
+        notebookID: notebook,
+        kind: kind,
         createdAt: base.addingTimeInterval(offset),
         updatedAt: base.addingTimeInterval(offset)
     )
 }
 
 extension StorageSet {
-    /// The wave-0 write a service performs: save, index and journal together.
+    /// The write a service performs: save, index and journal together.
     @discardableResult
     func save(_ note: Note) async throws -> Note {
         try await transactions.write { session in

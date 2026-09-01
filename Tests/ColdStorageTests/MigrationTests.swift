@@ -84,6 +84,75 @@ struct MigrationTests {
         }
     }
 
+    @Test("v2 creates the note table with both rich-text column pairs")
+    func noteTableExistsFromV2() throws {
+        try withTemporaryDatabase { url in
+            let storage = try SQLiteStorage(at: url)
+
+            let columns = try storage.pool.read { db in
+                try db.columns(in: "note").map(\.name)
+            }
+            for column in [
+                "title_data", "title_plain", "body_data", "body_plain",
+                "notebook_id", "kind", "is_pinned", "observed_at",
+                "owner_id", "local_version", "remote_version",
+                "deleted_at", "last_editor",
+            ] {
+                #expect(columns.contains(column), "note is missing \(column)")
+            }
+        }
+    }
+
+    @Test("Both list orderings are indexed")
+    func listOrderingsAreIndexed() throws {
+        try withTemporaryDatabase { url in
+            let storage = try SQLiteStorage(at: url)
+
+            let indexes = try storage.pool.read { db in
+                try db.indexes(on: "note").map(\.name)
+            }
+            #expect(indexes.contains("note_on_notebook_updated"))
+            #expect(indexes.contains("note_on_kind_updated"))
+        }
+    }
+
+    /// The first place SQLite itself enforces integrity rather than our own
+    /// checks doing it. A note whose notebook does not exist is unreachable
+    /// from the sidebar, and would be invisible rather than wrong.
+    @Test("A note cannot reference a notebook that does not exist")
+    func noteRequiresARealNotebook() throws {
+        try withTemporaryDatabase { url in
+            let storage = try SQLiteStorage(at: url)
+            let orphan = makeNote("Orphan", in: NotebookID())
+
+            #expect(throws: (any Error).self) {
+                try storage.pool.write { db in try NoteRow(orphan).insert(db) }
+            }
+        }
+    }
+
+    /// `onDelete: .restrict`. A notebook row is never actually removed — the
+    /// service tombstones it — but if one ever were, its notes must not be
+    /// silently orphaned or silently destroyed.
+    @Test("A notebook with notes cannot be hard-deleted")
+    func notebookWithNotesIsProtected() throws {
+        try withTemporaryDatabase { url in
+            let storage = try SQLiteStorage(at: url)
+            try storage.pool.write { db in
+                try NoteRow(makeNote("Attached")).insert(db)
+            }
+
+            #expect(throws: (any Error).self) {
+                try storage.pool.write { db in
+                    try db.execute(
+                        sql: "DELETE FROM notebook WHERE id = ?",
+                        arguments: [DefaultNotebook.identifier.value.uuidString]
+                    )
+                }
+            }
+        }
+    }
+
     @Test("Data written before a reopen is still there")
     func dataSurvivesAReopen() async throws {
         try withTemporaryDatabase { url in

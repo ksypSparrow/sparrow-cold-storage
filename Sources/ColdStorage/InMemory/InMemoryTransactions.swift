@@ -17,7 +17,9 @@ struct InMemoryTransactionRunner: TransactionRunning {
     }
 }
 
-struct InMemoryObserver: StorageObserving {
+/// Not in-memory-specific: both stores publish through the same broadcaster,
+/// so both observe through this.
+struct ChangeObserver: StorageObserving {
     let broadcaster: ChangeBroadcaster
 
     var changes: AsyncStream<StoredChange> {

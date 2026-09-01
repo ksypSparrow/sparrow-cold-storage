@@ -55,35 +55,31 @@ public enum ColdStorage {
             search: InMemorySearchIndex(store: store),
             journal: InMemoryJournalReader(store: store),
             transactions: InMemoryTransactionRunner(store: store),
-            observer: InMemoryObserver(broadcaster: broadcaster)
+            observer: ChangeObserver(broadcaster: broadcaster)
         )
     }
 
     /// Opens the store at `url`, running any migrations it needs, and returns
     /// the protocols the rest of the app is allowed to hold.
     ///
-    /// ⚠️ **In 0.2.0 this persists notebooks, and notes are still in memory.**
-    /// The `note` table arrives with migration v2 in 0.4.0, so a note created
-    /// today does not survive a relaunch. Notebooks do. Nothing about this
-    /// signature changes when notes join them — which is the point of handing
-    /// back protocols.
+    /// As of 0.4.0 everything persists: notes, notebooks, the journal.
+    /// Full-text search is the last piece, and arrives in 0.5.0.
     public static func make(at url: URL) throws -> StorageSet {
         let broadcaster = ChangeBroadcaster()
         let storage = try SQLiteStorage(at: url)
-        let store = InMemoryStore(broadcaster: broadcaster)
 
         return StorageSet(
-            // Notes and the index still come from memory until migration v2,
-            // in 0.4.0. The notebook, journal and transaction paths are real.
-            notes: InMemoryNoteReader(store: store),
+            notes: SQLiteNoteRepository(storage: storage),
             notebooks: SQLiteNotebookRepository(storage: storage),
-            search: InMemorySearchIndex(store: store),
+            // Full-text search arrives in 0.5.0. Until then this refuses
+            // rather than answering from an index that does not exist.
+            search: UnavailableSearchIndex(),
             journal: SQLiteJournalReader(storage: storage),
             transactions: SQLiteTransactionRunner(
                 storage: storage,
                 broadcaster: broadcaster
             ),
-            observer: InMemoryObserver(broadcaster: broadcaster)
+            observer: ChangeObserver(broadcaster: broadcaster)
         )
     }
 }
