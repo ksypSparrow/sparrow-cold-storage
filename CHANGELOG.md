@@ -9,6 +9,51 @@ Pre-1.0, **the minor is the breaking bump**. Dependents pin with
 
 ## [Unreleased]
 
+## [0.5.0] — wave 4 · full-text search
+
+**No domain change.** `search` takes a `String` and returns `[Note]`, both of
+which already existed — so `sparrow-domain` ships nothing this wave, and does
+not tag.
+
+### Added
+
+- `Migrations.v3_fts` — a **standalone** FTS5 table with
+  `tokenize = 'unicode61 remove_diacritics 2'`, which is what makes `"heron"`
+  match `"Herón"` (**FR-1.3**).
+- `SQLiteIndexSession` (inside a transaction) and `SQLiteSearchIndex`
+  (outside one).
+- `FTSQuery` — turns typed input into something `MATCH` will accept.
+
+### Changed
+
+- `search.matches` no longer throws `.unavailable`. `DiscardingIndexSession` is
+  gone; index writes now land in FTS5.
+- **The in-memory matcher was rewritten to match FTS5's semantics.**
+
+### Notes
+
+- **Standalone, not external-content.** External content needs an INTEGER
+  rowid join, the awkward `INSERT INTO fts(fts, rowid, …) VALUES('delete', …)`
+  form, and triggers to stay in step. Duplicating tens of kilobytes per
+  thousand notes buys an index that cannot drift.
+- **v3 builds the index from notes already on disk.** 0.4.0 accepted index
+  writes and discarded them; this is the other half of that promise, so
+  nothing had to be remembered in between.
+- **Raw input never reaches `MATCH`.** FTS5 has its own query syntax, so every
+  term is quoted — an apostrophe or a bare `AND` would change the meaning of a
+  search or make it throw. Every term also gets a `*`, so search-as-you-type
+  finds a note before the word is finished.
+- Results are **newest first**, in both stores. For field notes the most recent
+  sighting is usually the wanted one; bm25 relevance is a later choice.
+
+### The parity gate earned its place
+
+Four search tests failed on `.inMemory()` and passed on `.make(at:)`. The
+naive substring matcher had no diacritic folding, no term ANDing and no prefix
+matching — it had passed every test that only ever ran against it. A test
+double weaker than the real thing is worse than none, because it makes the
+layer above look correct. `SearchText` now mirrors FTS5 deliberately.
+
 ## [0.4.0] — wave 3 · note storage
 
 Depends on **SparrowDomain 0.4.0**. Notes finally persist.

@@ -64,34 +64,3 @@ struct SQLiteNoteSession: NoteSessionAccess {
         try NoteRow.filter(Column("id") == id.value.uuidString).fetchOne(db)
     }
 }
-
-/// Accepts index writes and discards them, until FTS5 arrives in 0.5.0.
-///
-/// Dropping them loses nothing: the text lives in the `note` table, and 0.5.0's
-/// migration builds the index from there. Refusing them instead would block
-/// every note write, since a save indexes in the same transaction.
-///
-/// ⚠️ Reading is a different matter — see `UnavailableSearchIndex`. Accepting a
-/// write you discard is harmless here; answering a search from an index that
-/// does not exist would be a lie.
-struct DiscardingIndexSession: SearchIndexWriting {
-    let validity: SessionValidity
-
-    func index(_ note: Note) throws { try validity.check() }
-    func remove(_ id: NoteID) throws { try validity.check() }
-}
-
-/// Refuses to answer searches until there is an index to answer from.
-struct UnavailableSearchIndex: SearchIndexing {
-    func matches(_ text: String, limit: Int) async throws -> [NoteID] {
-        throw StorageError.unavailable(
-            "full-text search arrives with FTS5, in 0.5.0"
-        )
-    }
-
-    func rebuild() async throws {
-        throw StorageError.unavailable(
-            "full-text search arrives with FTS5, in 0.5.0"
-        )
-    }
-}
