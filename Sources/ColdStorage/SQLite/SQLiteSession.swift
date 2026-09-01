@@ -13,6 +13,9 @@ struct SQLiteSession: StorageSession {
     let db: Database
     let validity: SessionValidity
     let touched: TouchedIdentifiers
+    /// One timestamp for the whole transaction, so everything it writes agrees
+    /// about when it happened.
+    let now: Date
 
     var notes: any NoteSessionAccess {
         SQLiteNoteSession(db: db, validity: validity, touched: touched)
@@ -20,6 +23,10 @@ struct SQLiteSession: StorageSession {
 
     var notebooks: any NotebookSessionAccess {
         SQLiteNotebookSession(db: db, validity: validity, touched: touched)
+    }
+
+    var tags: any TagSessionAccess {
+        SQLiteTagSession(db: db, validity: validity, touched: touched, now: now)
     }
 
     var index: any SearchIndexWriting {
@@ -36,7 +43,9 @@ struct SQLiteSession: StorageSession {
 final class TouchedIdentifiers: @unchecked Sendable {
     private(set) var notes: Set<NoteID> = []
     private(set) var notebooks: Set<NotebookID> = []
+    private(set) var tags: Set<TagID> = []
 
     func note(_ id: NoteID) { notes.insert(id) }
     func notebook(_ id: NotebookID) { notebooks.insert(id) }
+    func tag(_ id: TagID) { tags.insert(id) }
 }

@@ -9,10 +9,12 @@ struct SQLiteNoteRepository: NoteReading {
 
     func note(_ id: NoteID) async throws -> Note? {
         try await storage.read { db in
-            try NoteRow.live()
+            guard let row = try NoteRow.live()
                 .filter(Column("id") == id.value.uuidString)
                 .fetchOne(db)
-        }?.toDomain()
+            else { return nil }
+            return try row.toDomain(tagIDs: NoteTags.read(id, from: db))
+        }
     }
 
     func notes(_ ids: [NoteID]) async throws -> [Note] {
@@ -20,14 +22,15 @@ struct SQLiteNoteRepository: NoteReading {
         guard !strings.isEmpty else { return [] }
 
         let found = try await storage.read { db in
-            try NoteRow.live()
+            let rows = try NoteRow.live()
                 .filter(strings.contains(Column("id")))
                 .fetchAll(db)
+            return try Self.withTags(rows, in: db)
         }
         // Return them in the order asked for, not the order SQLite found them.
         // A caller that passed identifiers in a considered order gets it back.
         let byID = Dictionary(
-            uniqueKeysWithValues: try found.map { ($0.id, try $0.toDomain()) }
+            uniqueKeysWithValues: found.map { ($0.id.value.uuidString, $0) }
         )
         return strings.compactMap { byID[$0] }
     }
@@ -35,11 +38,12 @@ struct SQLiteNoteRepository: NoteReading {
     func recentNotes(limit: Int) async throws -> [Note] {
         guard limit > 0 else { return [] }
         return try await storage.read { db in
-            try NoteRow.live()
+            let rows = try NoteRow.live()
                 .order(Column("updated_at").desc, Column("id"))
                 .limit(limit)
                 .fetchAll(db)
-        }.map { try $0.toDomain() }
+            return try Self.withTags(rows, in: db)
+        }
     }
 
     func notes(
@@ -48,8 +52,11 @@ struct SQLiteNoteRepository: NoteReading {
         limit: Int
     ) async throws -> [Note] {
         guard limit > 0 else { return [] }
-        return try await fetch(filter, order: FilterCompiler.orderClause(for: sort), limit: limit)
-            .map { try $0.toDomain() }
+        return try await fetch(
+            filter,
+            order: FilterCompiler.orderClause(for: sort),
+            limit: limit
+        )
     }
 
     func count(matching filter: NoteFilter) async throws -> Int {
@@ -74,24 +81,35 @@ struct SQLiteNoteRepository: NoteReading {
         }
     }
 
+    /// Rows plus their tags, in one extra query rather than one per note.
+    static func withTags(_ rows: [NoteRow], in db: Database) throws -> [Note] {
+        let ids = rows.compactMap { UUID(uuidString: $0.id).map(NoteID.init) }
+        let tags = try NoteTags.read(ids, from: db)
+        return try rows.map { row in
+            let id = UUID(uuidString: row.id).map(NoteID.init)
+            return try row.toDomain(tagIDs: id.flatMap { tags[$0] } ?? [])
+        }
+    }
+
     private func fetch(
         _ filter: NoteFilter,
         order: String,
         limit: Int
-    ) async throws -> [NoteRow] {
+    ) async throws -> [Note] {
         let predicate = FilterCompiler.predicate(for: filter)
         var arguments = predicate.arguments
         let (join, matchClause) = textJoin(for: filter, arguments: &arguments)
         arguments += [limit]
 
         return try await storage.read { [arguments] db in
-            try NoteRow.fetchAll(db, sql: """
+            let rows = try NoteRow.fetchAll(db, sql: """
                 SELECT n.* FROM note n
                 \(join)
                  WHERE \(predicate.sql)\(matchClause)
                 \(order)
                  LIMIT ?
                 """, arguments: arguments)
+            return try Self.withTags(rows, in: db)
         }
     }
 

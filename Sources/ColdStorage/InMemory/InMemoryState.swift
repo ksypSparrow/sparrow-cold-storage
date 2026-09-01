@@ -16,12 +16,15 @@ final class InMemoryState: @unchecked Sendable {
     var noteTombstones: [NoteID: Date] = [:]
     var notebooks: [NotebookID: Notebook] = [:]
     var notebookTombstones: [NotebookID: Date] = [:]
+    var tags: [TagID: Tag] = [:]
+    var tagTombstones: [TagID: Date] = [:]
     var indexed: [NoteID: String] = [:]
     var journal: [JournalEntry] = []
     var sequence: Int64 = 0
 
     var touchedNotes: Set<NoteID> = []
     var touchedNotebooks: Set<NotebookID> = []
+    var touchedTags: Set<TagID> = []
 
     init(seededAt date: Date) {
         let seed = DefaultNotebook.make(at: date)
@@ -33,6 +36,8 @@ final class InMemoryState: @unchecked Sendable {
         noteTombstones = other.noteTombstones
         notebooks = other.notebooks
         notebookTombstones = other.notebookTombstones
+        tags = other.tags
+        tagTombstones = other.tagTombstones
         indexed = other.indexed
         journal = other.journal
         sequence = other.sequence
@@ -45,6 +50,8 @@ final class InMemoryState: @unchecked Sendable {
         noteTombstones = snapshot.noteTombstones
         notebooks = snapshot.notebooks
         notebookTombstones = snapshot.notebookTombstones
+        tags = snapshot.tags
+        tagTombstones = snapshot.tagTombstones
         indexed = snapshot.indexed
         journal = snapshot.journal
         sequence = snapshot.sequence
@@ -53,14 +60,30 @@ final class InMemoryState: @unchecked Sendable {
     // MARK: Notes
 
     func note(_ id: NoteID) -> Note? {
-        noteTombstones[id] == nil ? notes[id] : nil
+        guard noteTombstones[id] == nil, let note = notes[id] else { return nil }
+        return withLiveTags(note)
     }
 
     func liveNotes() -> [Note] {
         notes.values
             .filter { noteTombstones[$0.id] == nil }
+            .map(withLiveTags)
             .sorted { ($0.updatedAt, $0.id.value.uuidString)
                     > ($1.updatedAt, $1.id.value.uuidString) }
+    }
+
+    /// Drops tags that have been tombstoned.
+    ///
+    /// ⚠️ SQLite gets this for free: a note's tags are read through a join to
+    /// `tag`, which filters `deleted_at IS NULL`. In memory the identifiers
+    /// live on the note value itself, so nothing filters them unless this
+    /// does — and the two stores would disagree about a deleted tag. The
+    /// parity suites caught exactly that.
+    private func withLiveTags(_ note: Note) -> Note {
+        guard !note.tagIDs.isEmpty else { return note }
+        var projected = note
+        projected.tagIDs = note.tagIDs.filter { tagTombstones[$0] == nil }
+        return projected
     }
 
     func insert(_ note: Note) throws {
@@ -184,6 +207,33 @@ final class InMemoryState: @unchecked Sendable {
             guard let haystack = indexed[note.id] else { return false }
             return SearchText.matches(terms, in: haystack)
         }
+    }
+
+    // MARK: Tags
+
+    func tag(_ id: TagID) -> Tag? {
+        tagTombstones[id] == nil ? tags[id] : nil
+    }
+
+    func liveTags() -> [Tag] {
+        tags.values
+            .filter { tagTombstones[$0.id] == nil }
+            .sorted { $0.label < $1.label }
+    }
+
+    func upsert(_ tag: Tag) {
+        // Re-using a tombstoned tag revives it, as in SQLite.
+        tagTombstones[tag.id] = nil
+        tags[tag.id] = tag
+        touchedTags.insert(tag.id)
+    }
+
+    func markTagDeleted(_ id: TagID, at date: Date) throws {
+        guard tags[id] != nil, tagTombstones[id] == nil else {
+            throw StorageError.notFound
+        }
+        tagTombstones[id] = date
+        touchedTags.insert(id)
     }
 
     // MARK: Index

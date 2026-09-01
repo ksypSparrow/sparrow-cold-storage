@@ -8,6 +8,7 @@ import StorageContracts
 public struct StorageSet: Sendable {
     public let notes: any NoteReading
     public let notebooks: any NotebookReading
+    public let tags: any TagReading
     public let search: any SearchIndexing
 
     /// The outbound change log. Nothing reads it in V1 — it is here because
@@ -21,6 +22,7 @@ public struct StorageSet: Sendable {
     init(
         notes: any NoteReading,
         notebooks: any NotebookReading,
+        tags: any TagReading,
         search: any SearchIndexing,
         journal: any ChangeJournaling,
         transactions: any TransactionRunning,
@@ -28,6 +30,7 @@ public struct StorageSet: Sendable {
     ) {
         self.notes = notes
         self.notebooks = notebooks
+        self.tags = tags
         self.search = search
         self.journal = journal
         self.transactions = transactions
@@ -52,6 +55,7 @@ public enum ColdStorage {
         return StorageSet(
             notes: InMemoryNoteReader(store: store),
             notebooks: InMemoryNotebookReader(store: store),
+            tags: InMemoryTagReader(store: store),
             search: InMemorySearchIndex(store: store),
             journal: InMemoryJournalReader(store: store),
             transactions: InMemoryTransactionRunner(store: store),
@@ -71,6 +75,7 @@ public enum ColdStorage {
         return StorageSet(
             notes: SQLiteNoteRepository(storage: storage),
             notebooks: SQLiteNotebookRepository(storage: storage),
+            tags: SQLiteTagRepository(storage: storage),
             search: SQLiteSearchIndex(storage: storage),
             journal: SQLiteJournalReader(storage: storage),
             transactions: SQLiteTransactionRunner(

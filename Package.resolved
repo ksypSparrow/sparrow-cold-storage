@@ -1,5 +1,5 @@
 {
-  "originHash" : "725c33f135da3b770426144afe3fb3530dd7e1fae23a0e38eab195c06327e6c4",
+  "originHash" : "101d6d77de8b07f3168e1f540bb133c20f17c22e628440f73a6b978e59954e9a",
   "pins" : [
     {
       "identity" : "grdb.swift",
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ksypSparrow/sparrow-domain",
       "state" : {
-        "revision" : "d196fcfab25d98b938e507057746eec8d1e0d83e",
-        "version" : "0.5.0"
+        "revision" : "5b3fee333bf26939a38e8897e669b6f1de6ed1e5",
+        "version" : "0.6.0"
       }
     }
   ],

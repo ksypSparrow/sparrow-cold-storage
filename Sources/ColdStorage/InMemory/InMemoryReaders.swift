@@ -61,6 +61,22 @@ struct InMemoryNotebookReader: NotebookReading {
     }
 }
 
+struct InMemoryTagReader: TagReading {
+    let store: InMemoryStore
+
+    func allTags() async throws -> [Tag] {
+        store.read { $0.liveTags() }
+    }
+
+    func tags(_ ids: [TagID]) async throws -> [Tag] {
+        store.read { state in ids.compactMap { state.tag($0) } }
+    }
+
+    func tag(_ id: TagID) async throws -> Tag? {
+        store.read { $0.tag(id) }
+    }
+}
+
 struct InMemorySearchIndex: SearchIndexing {
     let store: InMemoryStore
 
