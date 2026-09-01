@@ -16,6 +16,10 @@ enum Migrations {
             try seedDefaultNotebook(db)
         }
 
+        migrator.registerMigration("v2_note") { db in
+            try createNoteTable(db)
+        }
+
         return migrator
     }
 
@@ -68,6 +72,51 @@ enum Migrations {
             t.column("owner_id", .text)
             t.column("last_editor", .text)
         }
+    }
+
+    // MARK: v2
+
+    private static func createNoteTable(_ db: Database) throws {
+        try db.create(table: "note") { t in
+            t.primaryKey("id", .text)
+            t.column("notebook_id", .text).notNull()
+                .references("notebook", onDelete: .restrict)
+            t.column("kind", .text).notNull()
+
+            // Rich text is two columns, matching `RichText`'s two fields.
+            //
+            // The plain copy is not redundancy for its own sake: FTS cannot
+            // index a blob, and a list row should not decode attributes to
+            // draw a title. It is also what survives if the attribute format
+            // ever changes.
+            t.column("title_data", .blob)
+            t.column("title_plain", .text).notNull()
+            t.column("body_data", .blob)
+            t.column("body_plain", .text).notNull()
+
+            t.column("is_pinned", .integer).notNull().defaults(to: false)
+            t.column("observed_at", .double)
+            t.column("created_at", .double).notNull()
+            t.column("updated_at", .double).notNull()
+
+            t.column("owner_id", .text)
+            t.column("local_version", .integer).notNull().defaults(to: 0)
+            t.column("remote_version", .integer)
+            t.column("deleted_at", .double)
+            t.column("last_editor", .text)
+        }
+
+        // The two orderings every list uses: a notebook's notes, and a kind's.
+        try db.create(
+            index: "note_on_notebook_updated",
+            on: "note",
+            columns: ["notebook_id", "updated_at"]
+        )
+        try db.create(
+            index: "note_on_kind_updated",
+            on: "note",
+            columns: ["kind", "updated_at"]
+        )
     }
 
     private static func seedDefaultNotebook(_ db: Database) throws {
