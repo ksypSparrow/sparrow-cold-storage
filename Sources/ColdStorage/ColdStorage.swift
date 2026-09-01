@@ -62,8 +62,8 @@ public enum ColdStorage {
     /// Opens the store at `url`, running any migrations it needs, and returns
     /// the protocols the rest of the app is allowed to hold.
     ///
-    /// As of 0.4.0 everything persists: notes, notebooks, the journal.
-    /// Full-text search is the last piece, and arrives in 0.5.0.
+    /// Everything persists: notes, notebooks, the journal, and as of 0.5.0
+    /// the full-text index.
     public static func make(at url: URL) throws -> StorageSet {
         let broadcaster = ChangeBroadcaster()
         let storage = try SQLiteStorage(at: url)
@@ -71,9 +71,7 @@ public enum ColdStorage {
         return StorageSet(
             notes: SQLiteNoteRepository(storage: storage),
             notebooks: SQLiteNotebookRepository(storage: storage),
-            // Full-text search arrives in 0.5.0. Until then this refuses
-            // rather than answering from an index that does not exist.
-            search: UnavailableSearchIndex(),
+            search: SQLiteSearchIndex(storage: storage),
             journal: SQLiteJournalReader(storage: storage),
             transactions: SQLiteTransactionRunner(
                 storage: storage,

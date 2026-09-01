@@ -56,6 +56,7 @@ tombstone a deleted note reappears from another device the first time V2 syncs.
 | 0.1.0 | `InMemoryStore` | contracts, tombstones, rollback, change events |
 | 0.2.0 | SQLite + GRDB | migration v1, notebook reads, seeded default |
 | 0.4.0 | SQLite | migration v2, notes — everything persists |
+| 0.5.0 | SQLite + FTS5 | migration v3, full-text search |
 
 ## Build
 

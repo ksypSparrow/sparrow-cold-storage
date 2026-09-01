@@ -23,7 +23,7 @@ struct SQLiteSession: StorageSession {
     }
 
     var index: any SearchIndexWriting {
-        DiscardingIndexSession(validity: validity)
+        SQLiteIndexSession(db: db, validity: validity)
     }
 
     var journal: any ChangeJournalWriting {

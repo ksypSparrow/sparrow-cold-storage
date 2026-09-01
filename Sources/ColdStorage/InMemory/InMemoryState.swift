@@ -170,7 +170,9 @@ final class InMemoryState: @unchecked Sendable {
     // MARK: Index
 
     func index(_ note: Note) {
-        indexed[note.id] = "\(note.title)\n\(note.body)".lowercased()
+        indexed[note.id] = SearchText.fold(
+            "\(note.plainTitle)\n\(note.plainBody)"
+        )
     }
 
     func removeFromIndex(_ id: NoteID) {
@@ -178,10 +180,13 @@ final class InMemoryState: @unchecked Sendable {
     }
 
     func matches(_ text: String, limit: Int) -> [NoteID] {
-        let needle = text.lowercased().trimmingCharacters(in: .whitespaces)
-        guard !needle.isEmpty, limit > 0 else { return [] }
+        let terms = SearchText.terms(in: text)
+        guard !terms.isEmpty, limit > 0 else { return [] }
         return liveNotes()
-            .filter { indexed[$0.id]?.contains(needle) == true }
+            .filter { note in
+                guard let haystack = indexed[note.id] else { return false }
+                return SearchText.matches(terms, in: haystack)
+            }
             .prefix(limit)
             .map(\.id)
     }

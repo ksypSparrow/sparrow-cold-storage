@@ -20,6 +20,11 @@ enum Migrations {
             try createNoteTable(db)
         }
 
+        migrator.registerMigration("v3_fts") { db in
+            try createSearchIndex(db)
+            try populateSearchIndex(db)
+        }
+
         return migrator
     }
 
@@ -117,6 +122,45 @@ enum Migrations {
             on: "note",
             columns: ["kind", "updated_at"]
         )
+    }
+
+    // MARK: v3
+
+    private static func createSearchIndex(_ db: Database) throws {
+        // ⚠️ **Standalone, not external-content.**
+        //
+        // External content avoids duplicating the text, but needs an
+        // INTEGER rowid join, the awkward
+        // `INSERT INTO fts(fts, rowid, …) VALUES('delete', …)` form, and
+        // triggers to stay in step. The text is tens of kilobytes per
+        // thousand notes; duplicating it buys an index that cannot drift,
+        // because the row and its entry are written in one transaction.
+        //
+        // `remove_diacritics 2` is what makes "heron" match "Herón" —
+        // FR-1.3, and the acceptance test for it.
+        try db.execute(sql: """
+            CREATE VIRTUAL TABLE note_fts USING fts5(
+                note_id UNINDEXED,
+                title,
+                body,
+                tokenize = 'unicode61 remove_diacritics 2'
+            )
+            """)
+    }
+
+    /// Builds the index from the notes already on disk.
+    ///
+    /// 0.4.0 accepted index writes and discarded them, because there was
+    /// nowhere to put them. This is the other half of that promise: every
+    /// note written before FTS5 existed is indexed here, so nothing had to
+    /// be remembered in the meantime.
+    private static func populateSearchIndex(_ db: Database) throws {
+        try db.execute(sql: """
+            INSERT INTO note_fts (note_id, title, body)
+            SELECT id, title_plain, body_plain
+              FROM note
+             WHERE deleted_at IS NULL
+            """)
     }
 
     private static func seedDefaultNotebook(_ db: Database) throws {
