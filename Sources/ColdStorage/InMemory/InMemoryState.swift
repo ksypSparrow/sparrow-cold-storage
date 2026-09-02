@@ -92,6 +92,7 @@ final class InMemoryState: @unchecked Sendable {
                 "a note with id \(note.id) already exists"
             )
         }
+        try assertDailyIsUnique(note)
         notes[note.id] = note
         touchedNotes.insert(note.id)
     }
@@ -100,6 +101,7 @@ final class InMemoryState: @unchecked Sendable {
         guard notes[note.id] != nil, noteTombstones[note.id] == nil else {
             throw StorageError.notFound
         }
+        try assertDailyIsUnique(note)
         notes[note.id] = note
         touchedNotes.insert(note.id)
     }
@@ -206,6 +208,42 @@ final class InMemoryState: @unchecked Sendable {
             guard !terms.isEmpty else { return true }
             guard let haystack = indexed[note.id] else { return false }
             return SearchText.matches(terms, in: haystack)
+        }
+    }
+
+    /// One daily note per day.
+    ///
+    /// ⚠️ SQLite enforces this with a partial unique index. In memory there is
+    /// no index, so nothing would stop a second entry — and the two stores
+    /// would disagree about whether it is an error. Written here rather than
+    /// discovered by the parity suites, which have caught this shape of
+    /// divergence three times already.
+    private func assertDailyIsUnique(_ note: Note) throws {
+        guard note.kind == .daily else { return }
+        let key = DayKey.string(for: note.happenedAt)
+
+        let clash = liveNotes().first { other in
+            other.id != note.id
+                && other.kind == .daily
+                && DayKey.string(for: other.happenedAt) == key
+        }
+        guard clash == nil else {
+            throw StorageError.constraintViolated(
+                "there is already a daily note for \(key)"
+            )
+        }
+    }
+
+    /// The daily note for a calendar day.
+    ///
+    /// Uses the same `DayKey` the SQLite store writes into its `day` column,
+    /// so both stores agree on which day a note belongs to — including the
+    /// `happenedAt` fallback, which puts a late-night entry about yesterday on
+    /// yesterday.
+    func dailyNote(on day: Date) -> Note? {
+        let key = DayKey.string(for: day)
+        return liveNotes().first { note in
+            note.kind == .daily && DayKey.string(for: note.happenedAt) == key
         }
     }
 

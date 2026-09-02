@@ -9,6 +9,36 @@ Pre-1.0, **the minor is the breaking bump**. Dependents pin with
 
 ## [Unreleased]
 
+## [0.8.0] — wave 7 · daily notes
+
+**No domain change.** `NoteKind.daily` has existed since domain 0.4.0, so
+`sparrow-domain` ships nothing this wave and does not tag — the second dash in
+its column.
+
+### Added
+
+- `NoteReading.dailyNote(on:)` — a calendar-day query.
+- `Migrations.v5_daily_unique` — a `day` column and a **partial unique index**
+  on it, for `kind = 'daily'` and live rows only.
+- `DayKey` — the one definition of which calendar day a date belongs to.
+
+### Notes
+
+- **The day is computed at write time and stored.** A day is a calendar
+  question, not an arithmetic one: it depends on the timezone and on daylight
+  saving. Deriving it on every read would make the same note answer
+  differently after a flight.
+- **`happenedAt` decides the day**, so a daily entry written at 00:30 *about
+  yesterday* belongs to yesterday.
+- **The index excludes tombstones.** Deleting today's entry must not prevent
+  writing another one.
+- **The in-memory store enforces the same constraint in code.** SQLite has an
+  index; memory has nothing, and the two would disagree about whether a second
+  daily note is an error. Written up front this time rather than found by the
+  parity suites, which have caught this shape three times.
+- v5 backfills `day` before building the index, so a database that already had
+  daily notes cannot fail to migrate.
+
 ## [0.7.0] — wave 6 · tags
 
 Depends on **SparrowDomain 0.6.0**.

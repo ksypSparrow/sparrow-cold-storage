@@ -39,6 +39,10 @@ struct InMemoryNoteReader: NoteReading {
     func count(matching filter: NoteFilter) async throws -> Int {
         store.read { $0.notes(matching: filter).count }
     }
+
+    func dailyNote(on day: Date) async throws -> Note? {
+        store.read { $0.dailyNote(on: day) }
+    }
 }
 
 struct InMemoryNotebookReader: NotebookReading {

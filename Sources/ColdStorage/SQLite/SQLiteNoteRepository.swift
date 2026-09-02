@@ -81,6 +81,18 @@ struct SQLiteNoteRepository: NoteReading {
         }
     }
 
+    func dailyNote(on day: Date) async throws -> Note? {
+        let key = DayKey.string(for: day)
+        return try await storage.read { db in
+            guard let row = try NoteRow.live()
+                .filter(Column("kind") == NoteKind.daily.rawValue)
+                .filter(Column("day") == key)
+                .fetchOne(db)
+            else { return nil }
+            return try Self.withTags([row], in: db).first
+        }
+    }
+
     /// Rows plus their tags, in one extra query rather than one per note.
     static func withTags(_ rows: [NoteRow], in db: Database) throws -> [Note] {
         let ids = rows.compactMap { UUID(uuidString: $0.id).map(NoteID.init) }
