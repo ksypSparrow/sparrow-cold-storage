@@ -29,6 +29,12 @@ enum Migrations {
             try createTagTables(db)
         }
 
+        migrator.registerMigration("v5_daily_unique") { db in
+            try addDayColumn(db)
+            try backfillDayColumn(db)
+            try createDailyUniqueIndex(db)
+        }
+
         return migrator
     }
 
@@ -207,6 +213,52 @@ enum Migrations {
             on: "note_tag",
             columns: ["tag_id"]
         )
+    }
+
+    // MARK: v5
+
+    private static func addDayColumn(_ db: Database) throws {
+        try db.alter(table: "note") { t in
+            // Only daily notes carry one. A calendar day is not derivable from
+            // an epoch second without a timezone, so it is stored rather than
+            // computed on read.
+            t.add(column: "day", .text)
+        }
+    }
+
+    /// Fills in `day` for daily notes that predate this migration.
+    ///
+    /// There are none in practice — `NoteKind.daily` has existed since domain
+    /// 0.4.0 but nothing created one. Doing it anyway costs three lines and
+    /// means the index below cannot fail to build on a database that did.
+    private static func backfillDayColumn(_ db: Database) throws {
+        let rows = try Row.fetchAll(db, sql: """
+            SELECT id, created_at FROM note WHERE kind = 'daily' AND day IS NULL
+            """)
+        for row in rows {
+            let created = Date(timeIntervalSince1970: row["created_at"])
+            try db.execute(
+                sql: "UPDATE note SET day = ? WHERE id = ?",
+                arguments: [DayKey.string(for: created), row["id"] as String]
+            )
+        }
+    }
+
+    /// One daily note per day, enforced by the database.
+    ///
+    /// ⚠️ **The service also guards this, and both are needed.** A check in the
+    /// service closes the window it can see; the index closes the one it
+    /// cannot — two processes, or two taps racing inside one. The database is
+    /// the thing that cannot be raced.
+    ///
+    /// Tombstones are excluded: deleting today's entry must not prevent
+    /// writing another one.
+    private static func createDailyUniqueIndex(_ db: Database) throws {
+        try db.execute(sql: """
+            CREATE UNIQUE INDEX note_daily_unique
+                ON note(day)
+             WHERE kind = 'daily' AND day IS NOT NULL AND deleted_at IS NULL
+            """)
     }
 
     private static func seedDefaultNotebook(_ db: Database) throws {

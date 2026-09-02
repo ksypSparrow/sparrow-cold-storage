@@ -21,6 +21,8 @@ struct NoteRow: Codable, FetchableRecord, PersistableRecord {
     var bodyPlain: String
     var isPinned: Bool
     var observedAt: Double?
+    /// Set only for `.daily` notes — the calendar day they belong to.
+    var day: String?
     var createdAt: Double
     var updatedAt: Double
     var ownerID: String?
@@ -39,6 +41,7 @@ struct NoteRow: Codable, FetchableRecord, PersistableRecord {
         case bodyPlain = "body_plain"
         case isPinned = "is_pinned"
         case observedAt = "observed_at"
+        case day
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case ownerID = "owner_id"
@@ -60,6 +63,12 @@ extension NoteRow {
         bodyPlain = note.body.plain
         isPinned = note.isPinned
         observedAt = note.observedAt?.timeIntervalSince1970
+        // The key is derived from the moment the note is *about* where there
+        // is one, so a daily entry written after midnight about yesterday
+        // still lands on yesterday.
+        day = note.kind == .daily
+            ? DayKey.string(for: note.happenedAt)
+            : nil
         createdAt = note.createdAt.timeIntervalSince1970
         updatedAt = note.updatedAt.timeIntervalSince1970
         ownerID = nil

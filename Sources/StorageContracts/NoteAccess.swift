@@ -16,6 +16,11 @@ public protocol NoteReading: Sendable {
     ) async throws -> [Note]
 
     func count(matching filter: NoteFilter) async throws -> Int
+
+    /// The daily note for a calendar day, if one exists.
+    ///
+    /// "Day" means the calendar's day, not a 24-hour window from midnight UTC.
+    func dailyNote(on day: Date) async throws -> Note?
 }
 
 public extension NoteReading {
