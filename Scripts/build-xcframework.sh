@@ -21,8 +21,12 @@ DD="$OUT/dd"
 rm -rf "$OUT/$NAME.xcframework"
 ARGS=()
 
+# ⚠️ macOS is not optional. `swift test` runs on the host, so an xcframework
+# with only iOS slices makes the consuming package untestable from source — and
+# this package declares .macOS support, which a Mac app relies on.
 for dest in "generic/platform=iOS Simulator:Release-iphonesimulator" \
-            "generic/platform=iOS:Release-iphoneos"; do
+            "generic/platform=iOS:Release-iphoneos" \
+            "generic/platform=macOS:Release" ; do
     destination="${dest%%:*}"
     config="${dest##*:}"
 
