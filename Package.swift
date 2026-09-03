@@ -5,15 +5,16 @@ let package = Package(
     name: "SparrowColdStorage",
     platforms: [.iOS(.v27), .macOS(.v27)],
     products: [
-        .library(name: "StorageContracts", targets: ["StorageContracts"]),
-        .library(name: "ColdStorage", targets: ["ColdStorage"]),
+        .library(name: "StorageContracts", type: .dynamic, targets: ["StorageContracts"]),
+        .library(name: "ColdStorage", type: .dynamic, targets: ["ColdStorage"]),
     ],
     dependencies: [
         .package(
             url: "https://github.com/ksypSparrow/sparrow-domain",
-            // ⚠️ `.upToNextMajor` now that domain is 1.0.0 — after a
-            // compatibility promise, the major is the breaking bump.
-            .upToNextMajor(from: "1.0.0")
+            // ⚠️ 1.1.0 minimum: that is where the domain product became
+            // `.dynamic`. Against a static one, ColdStorage.framework
+            // statically swallows the domain types instead of linking them.
+            .upToNextMajor(from: "1.1.0")
         ),
         .package(
             url: "https://github.com/groue/GRDB.swift",
