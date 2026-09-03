@@ -14,7 +14,16 @@
 # the xcframework cannot be imported.
 set -euo pipefail
 
+# ⚠️ StorageContracts lives in its own package now, so it is built from there:
+#     (cd Contracts && OUT=... ../Scripts/build-xcframework.sh StorageContracts)
+# and ColdStorage from the root with the package scheme:
+#     SCHEME=SparrowColdStorage OUT=... Scripts/build-xcframework.sh ColdStorage
+
 NAME="${1:-ColdStorage}"
+# ⚠️ Splitting StorageContracts into its own package collapsed the per-product
+# schemes into one package scheme, so the scheme is no longer the framework
+# name. Pass SCHEME when they differ.
+SCHEME="${SCHEME:-$NAME}"
 OUT="${OUT:-$PWD/build}"
 DD="$OUT/dd"
 
@@ -30,7 +39,7 @@ for dest in "generic/platform=iOS Simulator:Release-iphonesimulator" \
     destination="${dest%%:*}"
     config="${dest##*:}"
 
-    xcodebuild build -scheme "$NAME" -destination "$destination" \
+    xcodebuild build -scheme "$SCHEME" -destination "$destination" \
         -derivedDataPath "$DD" -configuration Release \
         BUILD_LIBRARY_FOR_DISTRIBUTION=YES SKIP_INSTALL=NO > /dev/null
 

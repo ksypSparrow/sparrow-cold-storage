@@ -53,6 +53,14 @@ extension JournalRow {
         case .tag(let tagID):
             subjectType = "tag"
             subjectID = tagID.slug
+        // ⚠️ Reachable only if `StorageContracts` and `ColdStorage` versions are
+        // mixed — they ship from one repo and are normally in lockstep. The row
+        // is still written, because the journal is append-only and losing an
+        // entry silently is worse than keeping an unreadable one. A V2 sync
+        // engine must quarantine rows of this type rather than interpret them.
+        @unknown default:
+            subjectType = "unknown"
+            subjectID = ""
         }
         operation = draft.operation.rawValue
         payload = draft.payload
