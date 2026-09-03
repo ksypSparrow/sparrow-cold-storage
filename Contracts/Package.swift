@@ -24,7 +24,7 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/ksypSparrow/sparrow-domain",
-            .upToNextMajor(from: "1.1.1")
+            .upToNextMajor(from: "2.0.0")
         ),
     ],
     targets: [
