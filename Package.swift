@@ -5,7 +5,6 @@ let package = Package(
     name: "SparrowColdStorage",
     platforms: [.iOS(.v27), .macOS(.v27)],
     products: [
-        .library(name: "StorageContracts", type: .dynamic, targets: ["StorageContracts"]),
         .library(name: "ColdStorage", type: .dynamic, targets: ["ColdStorage"]),
     ],
     dependencies: [
@@ -20,18 +19,19 @@ let package = Package(
             url: "https://github.com/groue/GRDB.swift",
             .upToNextMinor(from: "7.11.0")
         ),
+        // ⚠️ Its own package so `ColdStorage` links it dynamically. As a target
+        // here it was statically swallowed — see Contracts/Package.swift.
+        .package(path: "Contracts"),
     ],
     targets: [
-        .target(name: "StorageContracts", dependencies: [
-            .product(name: "SparrowDomain", package: "sparrow-domain"),
-        ]),
         .target(name: "ColdStorage", dependencies: [
-            "StorageContracts",
+            .product(name: "StorageContracts", package: "Contracts"),
+            .product(name: "SparrowDomain", package: "sparrow-domain"),
             .product(name: "GRDB", package: "GRDB.swift"),
         ]),
         .testTarget(name: "ColdStorageTests", dependencies: [
             "ColdStorage",
-            "StorageContracts",
+            .product(name: "StorageContracts", package: "Contracts"),
         ]),
     ]
 )
