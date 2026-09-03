@@ -35,6 +35,10 @@ enum Migrations {
             try createDailyUniqueIndex(db)
         }
 
+        migrator.registerMigration("v6_daily_day_from_observed") { db in
+            try recomputeDayFromObserved(db)
+        }
+
         return migrator
     }
 
@@ -258,6 +262,35 @@ enum Migrations {
             CREATE UNIQUE INDEX note_daily_unique
                 ON note(day)
              WHERE kind = 'daily' AND day IS NOT NULL AND deleted_at IS NULL
+            """)
+    }
+
+    // MARK: v6
+
+    /// Recomputes `day` from the moment a note is *about*, not the moment it
+    /// was written.
+    ///
+    /// ⚠️ **v5 got this wrong, and v5 is not edited.** Its backfill read
+    /// `created_at`, while `NoteRow` has always written `day` from
+    /// `happenedAt` — which prefers `observed_at`. Two definitions of "which
+    /// day", disagreeing: a daily entry written at 00:30 about yesterday
+    /// landed on today if it was migrated, and on yesterday if it was saved
+    /// fresh.
+    ///
+    /// A shipped migration is never edited — a device that already ran v5 has
+    /// the old keys, and rewriting v5 would never reach it. So this corrects
+    /// them, and v5 stays exactly as it shipped.
+    ///
+    /// 🧪 Found by the v1→v5 chain test, not by the per-migration ones: only a
+    /// database carrying data from *before* a migration can show that the
+    /// migration and the writer disagree.
+    private static func recomputeDayFromObserved(_ db: Database) throws {
+        try db.execute(sql: """
+            UPDATE note
+               SET day = strftime('%Y-%m-%d',
+                                  COALESCE(observed_at, created_at),
+                                  'unixepoch', 'localtime')
+             WHERE kind = 'daily' AND deleted_at IS NULL
             """)
     }
 

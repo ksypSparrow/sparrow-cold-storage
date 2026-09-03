@@ -9,6 +9,68 @@ Pre-1.0, **the minor is the breaking bump**. Dependents pin with
 
 ## [Unreleased]
 
+## [1.0.0] — wave 12 · stable
+
+Requires **SparrowDomain 1.0.0**, pinned `.upToNextMajor` — after a
+compatibility promise, the major is the breaking bump.
+
+### The public surface, entire
+
+```swift
+public enum ColdStorage {
+    public static func inMemory() throws -> StorageSet
+    public static func make(at url: URL) throws -> StorageSet
+}
+
+public struct StorageSet: Sendable {
+    public let notes: any NoteReading
+    public let notebooks: any NotebookReading
+    public let tags: any TagReading
+    public let search: any SearchIndexing
+    public let journal: any ChangeJournaling
+    public let transactions: any TransactionRunning
+    public let observer: any StorageObserving
+}
+```
+
+Plus `StorageError` and the contracts. **Every implementation type is
+`internal`** — a composition root cannot name `SQLiteNoteRepository`, and there
+is no public path to a write that skips a transaction.
+
+### Added — a migration the review found
+
+**`v6_daily_day_from_observed`.**
+
+⚠️ v5's backfill read `created_at`, while `NoteRow` has always written `day`
+from `happenedAt` — which prefers `observed_at`. **Two definitions of "which
+day", disagreeing:** a daily entry written at 00:30 about yesterday landed on
+today if it was migrated and on yesterday if it was saved fresh.
+
+v5 is not edited — a device that already ran it has the old keys, and rewriting
+v5 would never reach that device. v6 corrects them and v5 stays as it shipped.
+
+🧪 **Found by the new v1→v5 chain test**, not by the per-migration ones. Those
+open a *current* database and check one step; only a database carrying data
+from before a migration can show that the migration and the writer disagree.
+
+### Added — the chain tests
+
+Migrations are now tested against databases built at **older schemas**:
+v1 → v5 for a notebook, v2 → v6 for a note, v4 → v6 for tags.
+
+Historical rows are written with raw SQL, because a record type describes the
+schema as it is *today* — inserting a `NoteRow` into a v2 database fails with
+*"table note has no column named day"*.
+
+### What this release promises
+
+- **Two stores, one test suite.** Every behavioural test runs against
+  `.inMemory()` and `.make(at:)` both. That discipline caught three real
+  divergences across the waves.
+- **Migrations are append-only.** v6 exists rather than v5 being corrected.
+- **GRDB appears in four files**, all under `Sources/ColdStorage/SQLite/`, and
+  in no other repository.
+
 ## [0.8.0] — wave 7 · daily notes
 
 **No domain change.** `NoteKind.daily` has existed since domain 0.4.0, so

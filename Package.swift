@@ -11,7 +11,9 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/ksypSparrow/sparrow-domain",
-            .upToNextMinor(from: "0.6.0")
+            // ⚠️ `.upToNextMajor` now that domain is 1.0.0 — after a
+            // compatibility promise, the major is the breaking bump.
+            .upToNextMajor(from: "1.0.0")
         ),
         .package(
             url: "https://github.com/groue/GRDB.swift",
