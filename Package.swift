@@ -13,7 +13,7 @@ let package = Package(
             // ⚠️ 1.1.0 minimum: that is where the domain product became
             // `.dynamic`. Against a static one, ColdStorage.framework
             // statically swallows the domain types instead of linking them.
-            .upToNextMajor(from: "1.1.0")
+            .upToNextMajor(from: "2.0.0")
         ),
         .package(
             url: "https://github.com/groue/GRDB.swift",
