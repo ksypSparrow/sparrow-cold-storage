@@ -1,5 +1,5 @@
 import Foundation
-import GRDB
+internal import GRDB
 import SparrowDomain
 import StorageContracts
 

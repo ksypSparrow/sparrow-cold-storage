@@ -1,5 +1,5 @@
 import Foundation
-import GRDB
+internal import GRDB
 import StorageContracts
 
 /// Owns the database. Nothing else in the project may.

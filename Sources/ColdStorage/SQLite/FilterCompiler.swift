@@ -1,5 +1,5 @@
 import Foundation
-import GRDB
+internal import GRDB
 import SparrowDomain
 import StorageContracts
 
@@ -92,6 +92,14 @@ enum FilterCompiler {
         // `Note.happenedAt`: the observation, falling back to creation.
         case .observed: "COALESCE(n.observed_at, n.created_at)"
         case .title: "n.title_plain COLLATE NOCASE"
+        // ⚠️ Reachable only once `SparrowDomain` ships as a resilient binary:
+        // a field added there is *unknown* here until this file is updated.
+        // The fallback is deliberately the same column `NoteSort.Field.updated`
+        // maps to, so an unhandled field degrades to a defined order rather
+        // than an arbitrary one — but it will still disagree with
+        // `NoteSort.orders(_:before:)`, which is the parity bug this codebase
+        // has hit three times. Adding a case to that enum means editing here.
+        @unknown default: "n.updated_at"
         }
         return "ORDER BY \(column) \(direction), n.id \(direction)"
     }

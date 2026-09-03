@@ -1,5 +1,5 @@
 import Foundation
-import GRDB
+internal import GRDB
 
 /// The schema, one append-only step at a time.
 ///
